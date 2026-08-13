@@ -24,6 +24,7 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   const client = {
     enabled: true,
     endpoint: "/api/handrail-enhancements",
+    discover: async () => ({ enhancement_reporting: { enabled: true, user_enabled: false, access_level: null } }),
     submit: async (input) => {
       submissions.push(input);
       return {
@@ -56,6 +57,12 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
     typeof node.type === "string" && typeof node.props.onPaste === "function"
   ));
   assert.equal(pasteTargets.length, 1, "paste should be handled at one dialog boundary");
+  const dialog = renderer.root.findByProps({ role: "dialog" });
+  assert.equal(dialog.props.style.height, "min(620px, calc(100vh - 40px))");
+  assert.equal(dialog.props.style.overflow, "hidden");
+  assert.equal(dialog.findAll((node) => node.props.style?.overflow === "auto").length, 1);
+  assert.equal(renderer.root.findAll((node) => node.children?.includes("My requests")).length, 0);
+  assert.equal(renderer.root.findAllByProps({ role: "alert" }).length, 0);
 
   let prevented = 0;
   await act(async () => {
@@ -86,5 +93,30 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   assert.equal(submissions[0].images.length, 1);
   assert.equal(submissions[0].images[0].filename, "clipboard.png");
   assert.equal(submissions[0].images[0].source, "clipboard");
+  await act(async () => renderer.unmount());
+});
+
+test("the React dialog silently reveals My requests only for enabled enhancement users", async () => {
+  const client = {
+    enabled: true,
+    endpoint: "/api/handrail-enhancements",
+    discover: async () => ({ enhancement_reporting: { enabled: true, user_enabled: true, access_level: "user" } }),
+    submit: async () => { throw new Error("not used"); },
+    list: async () => ({
+      contract_version: "v1",
+      requests: [],
+      pagination: { limit: 20, offset: 0, total: 0, has_more: false },
+    }),
+  };
+  let renderer;
+  await act(async () => {
+    renderer = create(createElement(EnhancementReporterDialog, {
+      open: true,
+      onClose() {},
+      client,
+    }));
+  });
+  assert.equal(renderer.root.findAll((node) => node.children?.includes("My requests")).length, 1);
+  assert.equal(renderer.root.findAllByProps({ role: "alert" }).length, 0);
   await act(async () => renderer.unmount());
 });

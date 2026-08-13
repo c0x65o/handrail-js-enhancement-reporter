@@ -59,9 +59,9 @@ export interface EnhancementReporterDialogProps {
 
 const styles: Record<string, CSSProperties> = {
   overlay: { position: "fixed", inset: 0, zIndex: 2147483000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(15,23,42,.52)" },
-  dialog: { width: "min(620px, 100%)", maxHeight: "min(780px, calc(100vh - 40px))", overflow: "auto", borderRadius: 16, background: "#fff", color: "#18212f", boxShadow: "0 24px 70px rgba(15,23,42,.28)", fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" },
-  header: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 22px 14px", borderBottom: "1px solid #e7eaf0" },
-  content: { padding: 22 },
+  dialog: { display: "flex", flexDirection: "column", width: "min(620px, 100%)", height: "min(620px, calc(100vh - 40px))", overflow: "hidden", borderRadius: 16, background: "#fff", color: "#18212f", boxShadow: "0 24px 70px rgba(15,23,42,.28)", fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" },
+  header: { display: "flex", flexShrink: 0, alignItems: "center", justifyContent: "space-between", padding: "20px 22px 14px", borderBottom: "1px solid #e7eaf0" },
+  content: { flex: 1, minHeight: 0, overflow: "auto", padding: 22 },
   tabs: { display: "flex", gap: 6, padding: 4, marginBottom: 18, borderRadius: 10, background: "#f1f4f7" },
   tab: { flex: 1, border: 0, borderRadius: 8, padding: "8px 10px", cursor: "pointer", fontWeight: 650 },
   label: { display: "grid", gap: 7, marginBottom: 16, fontSize: 13, fontWeight: 650 },
@@ -97,6 +97,7 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
   const [description, setDescription] = useState("");
   const [images, setImages] = useState<SelectedImage[]>([]);
   const [history, setHistory] = useState<readonly EnhancementRequestRecord[]>([]);
+  const [historyAvailable, setHistoryAvailable] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +108,22 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
     for (const url of previewUrls.current) URL.revokeObjectURL(url);
     previewUrls.current.clear();
   }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    setTab("new");
+    setHistoryAvailable(false);
+    void client.discover().then((policy) => {
+      if (cancelled) return;
+      setHistoryAvailable(policy?.enhancement_reporting?.user_enabled === true);
+    }).catch(() => {
+      // Discovery is best-effort for presentation. Submission remains
+      // available and will return its own actionable error when necessary.
+      if (!cancelled) setHistoryAvailable(false);
+    });
+    return () => { cancelled = true; };
+  }, [client, open]);
 
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
@@ -169,10 +186,10 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
         <button type="button" aria-label="Close" onClick={onClose} style={{ ...styles.button, padding: "6px 10px", background: "transparent", fontSize: 20 }}>×</button>
       </header>
       <div style={styles.content}>
-        <div style={styles.tabs}>
+        {historyAvailable && <div style={styles.tabs}>
           <button type="button" style={{ ...styles.tab, background: tab === "new" ? "#fff" : "transparent", color: "#253044" }} onClick={() => setTab("new")}>New request</button>
           <button type="button" style={{ ...styles.tab, background: tab === "history" ? "#fff" : "transparent", color: "#253044" }} onClick={() => setTab("history")}>My requests</button>
-        </div>
+        </div>}
         {error && <div role="alert" style={styles.error}>{error}</div>}
         {submitted && tab === "new" && <div role="status" style={styles.success}>Submitted as pending Work Request <strong>{submitted.linked_work_request?.id || submitted.id}</strong>.</div>}
         {tab === "new" ? <form onSubmit={submit}>
