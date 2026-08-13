@@ -21,6 +21,11 @@ before implementing. Commit the application manifest and refreshed lockfile
 together. The lockfile records the resolved revisions so Owner Maintenance can
 report version and commit drift later.
 
+Use these Git dependencies directly. Do not vendor reporter tarballs, copied
+package directories, or local file dependencies. Maintenance compares the
+resolved Git commit with this repository and can move every installed project
+to the same current revision through its controlled update plan.
+
 The browser entry never accepts or transmits a Handrail bridge credential. Mount the server handler on the same origin, behind your normal application authentication boundary, and keep the MCP credential in server-only environment variables.
 
 ## Server route
