@@ -6,18 +6,20 @@ Version `0.1.x` deliberately creates only **Pending Work Requests**. It cannot r
 
 ## Install
 
-This repository follows Handrail's exact Git-pin distribution model; neither
-package should be assumed to exist in the npm registry. Use the immutable
-reporter and MCP revisions shown by Handrail Maintenance:
+Install the latest available reporter and compatible MCP peer directly from
+their canonical GitHub repositories; neither package should be assumed to
+exist in the npm registry:
 
 ```sh
 npm install \
-  '@handrail/enhancement-reporter@github:c0x65o/handrail-js-enhancement-reporter#<exact-reporter-commit>' \
-  '@handrail/mcp@github:c0x65o/handrail-mcp#<exact-mcp-tag-or-commit>'
+  '@handrail/enhancement-reporter@github:c0x65o/handrail-js-enhancement-reporter' \
+  '@handrail/mcp@github:c0x65o/handrail-mcp'
 ```
 
-Never replace either revision with `main` or another moving branch. Commit the
-application manifest and refreshed lockfile together.
+You do not need a Handrail Maintenance commit hash, tag, or dependency pin
+before implementing. Commit the application manifest and refreshed lockfile
+together. The lockfile records the resolved revisions so Owner Maintenance can
+report version and commit drift later.
 
 The browser entry never accepts or transmits a Handrail bridge credential. Mount the server handler on the same origin, behind your normal application authentication boundary, and keep the MCP credential in server-only environment variables.
 
