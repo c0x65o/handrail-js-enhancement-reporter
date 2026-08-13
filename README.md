@@ -2,13 +2,22 @@
 
 Authenticated, web-only customer enhancement requests for Handrail. The package provides a browser client, a ready-to-use React dialog, and a framework-neutral same-origin server handler backed by `@handrail/mcp`.
 
-Version `0.1.0` deliberately creates only **Pending Work Requests**. It cannot request staging or production delivery. Every request remains scoped to the authenticated Known User who submitted it.
+Version `0.1.x` deliberately creates only **Pending Work Requests**. It cannot request staging or production delivery. Every request remains scoped to the authenticated Known User who submitted it.
 
 ## Install
 
+This repository follows Handrail's exact Git-pin distribution model; neither
+package should be assumed to exist in the npm registry. Use the immutable
+reporter and MCP revisions shown by Handrail Maintenance:
+
 ```sh
-npm install @handrail/enhancement-reporter @handrail/mcp
+npm install \
+  '@handrail/enhancement-reporter@github:c0x65o/handrail-js-enhancement-reporter#<exact-reporter-commit>' \
+  '@handrail/mcp@github:c0x65o/handrail-mcp#<exact-mcp-tag-or-commit>'
 ```
+
+Never replace either revision with `main` or another moving branch. Commit the
+application manifest and refreshed lockfile together.
 
 The browser entry never accepts or transmits a Handrail bridge credential. Mount the server handler on the same origin, behind your normal application authentication boundary, and keep the MCP credential in server-only environment variables.
 
@@ -94,5 +103,5 @@ const release = await reporter.releaseStatus(current.id);
 - Browser transport is same-origin only and always sends `credentials: "same-origin"`.
 - The application resolves a session token afresh for every request; no anonymous or static-user fallback exists.
 - Handrail resolves the session through Known Users and scopes submit, list, lookup, attachment, cancellation, and release status to that principal.
-- Server code overwrites delivery and automation fields. Version `0.1.0` always submits a non-executing, pending enhancement Work Request.
+- Server code overwrites delivery and automation fields. Version `0.1.x` always submits a non-executing, pending enhancement Work Request.
 - MCP/API credentials remain server-only.

@@ -102,9 +102,12 @@ function endpointPath(value: unknown): string {
 
 function randomId(): string {
   if (typeof globalThis.crypto?.randomUUID === "function") return globalThis.crypto.randomUUID();
+  if (typeof globalThis.crypto?.getRandomValues !== "function") {
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
   const bytes = new Uint8Array(16);
-  globalThis.crypto?.getRandomValues?.(bytes);
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("") || `${Date.now()}-${Math.random()}`;
+  globalThis.crypto.getRandomValues(bytes);
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function normalizedMimeType(value: unknown): EnhancementImageMimeType | null {
@@ -226,7 +229,7 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
     enabled,
     endpoint,
     discover: () => request("/policy"),
-    async submit(input) {
+    async submit(input: EnhancementRequestInput) {
       const title = clean(input.title, 500);
       const description = clean(input.description, 20_000);
       if (!title || !description) throw new EnhancementReporterError("invalid_request", "A title and description are required.");
@@ -256,9 +259,9 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
       const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
       return request(`?${query.toString()}`);
     },
-    lookup(requestId) { return request(`/requests/${encodeURIComponent(requestId)}`); },
-    releaseStatus(requestId) { return request(`/requests/${encodeURIComponent(requestId)}/release-status`); },
-    cancel(requestId, reason) { return request(`/requests/${encodeURIComponent(requestId)}/cancel`, { method: "POST", body: JSON.stringify({ reason: clean(reason, 2_000) || null }) }); },
-    attachmentUrl(requestId, attachmentId) { return `${endpoint}/requests/${encodeURIComponent(requestId)}/attachments/${encodeURIComponent(attachmentId)}`; },
+    lookup(requestId: string) { return request(`/requests/${encodeURIComponent(requestId)}`); },
+    releaseStatus(requestId: string) { return request(`/requests/${encodeURIComponent(requestId)}/release-status`); },
+    cancel(requestId: string, reason?: string) { return request(`/requests/${encodeURIComponent(requestId)}/cancel`, { method: "POST", body: JSON.stringify({ reason: clean(reason, 2_000) || null }) }); },
+    attachmentUrl(requestId: string, attachmentId: string) { return `${endpoint}/requests/${encodeURIComponent(requestId)}/attachments/${encodeURIComponent(attachmentId)}`; },
   });
 }

@@ -177,8 +177,8 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
         {submitted && tab === "new" && <div role="status" style={styles.success}>Submitted as pending Work Request <strong>{submitted.linked_work_request?.id || submitted.id}</strong>.</div>}
         {tab === "new" ? <form onSubmit={submit}>
           <label style={styles.label}>Short title<input style={styles.input} maxLength={500} required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What should be improved?" /></label>
-          <label style={styles.label}>Details<textarea style={{ ...styles.input, minHeight: 130, resize: "vertical" }} maxLength={20_000} required value={description} onChange={(event) => setDescription(event.target.value)} onPaste={onPaste} placeholder="Describe the outcome you want. You can paste screenshots here." /></label>
-          <div style={styles.drop} onPaste={onPaste}>
+          <label style={styles.label}>Details<textarea style={{ ...styles.input, minHeight: 130, resize: "vertical" }} maxLength={20_000} required value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the outcome you want. You can paste screenshots here." /></label>
+          <div style={styles.drop}>
             <strong>Add screenshots or images</strong><div style={{ marginTop: 4 }}>Upload files or paste from your clipboard. PNG, JPEG, GIF, or WebP; up to 4 images.</div>
             <label style={{ display: "inline-block", marginTop: 10, cursor: "pointer", color: "#245e9e", fontWeight: 700 }}>Choose images<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange={onFiles} style={{ display: "none" }} /></label>
             {images.length > 0 && <div style={styles.imageGrid}>{images.map((image) => <div key={image.id} style={styles.imageCard}>
