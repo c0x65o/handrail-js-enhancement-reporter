@@ -38,6 +38,12 @@ export interface EnhancementRequestInput {
   };
   readonly idempotencyKey?: string;
   readonly conversationId?: string;
+  /** Customer choices rendered only for actions whose current policy is Ask. */
+  readonly automationRequests?: {
+    readonly run_work_request?: boolean;
+    readonly deploy_staging?: boolean;
+    readonly deploy_production?: boolean;
+  };
 }
 
 export interface EnhancementReporterConfig {
@@ -251,6 +257,11 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
             viewport: viewport || null,
           },
           reporter_sdk: reporterIdentity("browser"),
+          automation_requests: {
+            run_work_request: input.automationRequests?.run_work_request === true,
+            deploy_staging: input.automationRequests?.deploy_staging === true,
+            deploy_production: input.automationRequests?.deploy_production === true,
+          },
           attachments: images.map(({ mime_type: _mime, size_bytes: _size, ...image }) => image),
         }),
       });

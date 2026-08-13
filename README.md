@@ -2,7 +2,7 @@
 
 Authenticated, web-only customer enhancement requests for Handrail. The package provides a browser client, a ready-to-use React dialog, and a framework-neutral same-origin server handler backed by `@handrail/mcp`.
 
-Version `0.1.x` deliberately creates only **Pending Work Requests**. It cannot request staging or production delivery. Every request remains scoped to the authenticated Known User who submitted it.
+Version `0.2.x` applies the enhancement-specific Default, User, or Full Access matrix. Pending stays non-executing, Ask renders customer checkboxes, and Always applies automatically. Staging and production remain bounded by that matrix and Handrail's normal deployment gates. Every request stays scoped to the authenticated Known User who submitted it.
 
 ## Install
 
@@ -75,6 +75,8 @@ export function AccountMenu() {
 
 The dialog supports file upload and direct image paste from the clipboard. Accepted formats are PNG, JPEG, GIF, and WebP, with a maximum of 4 images, 5 MiB per image, and 15 MiB total. Both the browser and Handrail validate image signatures and limits.
 
+When an action is configured as **Ask**, the dialog renders its checkbox. A staging or production checkbox is enabled only when the Work Request will start. **Always** actions do not require a customer checkbox; **Pending** Work Request policy keeps delivery unavailable.
+
 Every authenticated Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin policy route before rendering navigation. Users with an explicit Enhancement Automation User or Full Access tracking assignment receive the **My requests** tab; unassigned users see only the submission form, without an access warning. The tab lists only requests owned by the current authenticated principal, and returned attachment URLs pass through the same principal-scoped route.
 
 ## Headless browser API
@@ -105,5 +107,5 @@ const release = await reporter.releaseStatus(current.id);
 - Browser transport is same-origin only and always sends `credentials: "same-origin"`.
 - The application resolves a session token afresh for every request; no anonymous or static-user fallback exists.
 - Handrail resolves the session through Known Users and scopes submit, list, lookup, attachment, cancellation, and release status to that principal.
-- Server code overwrites delivery and automation fields. Version `0.1.x` always submits a non-executing, pending enhancement Work Request.
+- Server code overwrites raw delivery and automation fields. It forwards only the reporter's strict checkbox request object, and Handrail intersects those choices with the authenticated user's enhancement-specific matrix.
 - MCP/API credentials remain server-only.

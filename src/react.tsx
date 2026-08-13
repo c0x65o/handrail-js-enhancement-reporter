@@ -49,6 +49,30 @@ interface SelectedImage {
   readonly preview: string | null;
 }
 
+interface EnhancementPolicyCells {
+  readonly run_work_request: "pending" | "ask" | "always";
+  readonly deploy_staging: "never" | "ask" | "always";
+  readonly deploy_production: "never" | "ask" | "always";
+}
+
+const PENDING_POLICY: EnhancementPolicyCells = Object.freeze({
+  run_work_request: "pending",
+  deploy_staging: "never",
+  deploy_production: "never",
+});
+
+function policyCells(value: any): EnhancementPolicyCells {
+  const cells = value?.enhancement_reporting?.policy?.cells;
+  const run = ["pending", "ask", "always"].includes(cells?.run_work_request)
+    ? cells.run_work_request
+    : "pending";
+  return {
+    run_work_request: run,
+    deploy_staging: run !== "pending" && ["never", "ask", "always"].includes(cells?.deploy_staging) ? cells.deploy_staging : "never",
+    deploy_production: run !== "pending" && ["never", "ask", "always"].includes(cells?.deploy_production) ? cells.deploy_production : "never",
+  };
+}
+
 export interface EnhancementReporterDialogProps {
   readonly open: boolean;
   readonly onClose: () => void;
@@ -98,6 +122,8 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
   const [images, setImages] = useState<SelectedImage[]>([]);
   const [history, setHistory] = useState<readonly EnhancementRequestRecord[]>([]);
   const [historyAvailable, setHistoryAvailable] = useState(false);
+  const [policy, setPolicy] = useState<EnhancementPolicyCells>(PENDING_POLICY);
+  const [automationRequests, setAutomationRequests] = useState({ run_work_request: false, deploy_staging: false, deploy_production: false });
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,9 +140,12 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
     let cancelled = false;
     setTab("new");
     setHistoryAvailable(false);
-    void client.discover().then((policy) => {
+    setPolicy(PENDING_POLICY);
+    setAutomationRequests({ run_work_request: false, deploy_staging: false, deploy_production: false });
+    void client.discover().then((discovery) => {
       if (cancelled) return;
-      setHistoryAvailable(policy?.enhancement_reporting?.user_enabled === true);
+      setHistoryAvailable(discovery?.enhancement_reporting?.user_enabled === true);
+      setPolicy(policyCells(discovery));
     }).catch(() => {
       // Discovery is best-effort for presentation. Submission remains
       // available and will return its own actionable error when necessary.
@@ -167,18 +196,24 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
     setSubmitting(true);
     setError(null);
     try {
-      const result = await client.submit({ title, description, images: images.map((image) => image.input), context: { appVersion } });
+      const result = await client.submit({ title, description, images: images.map((image) => image.input), context: { appVersion }, automationRequests });
       setSubmitted(result.request);
       setTitle("");
       setDescription("");
       for (const image of images) if (image.preview) { URL.revokeObjectURL(image.preview); previewUrls.current.delete(image.preview); }
       setImages([]);
+      setAutomationRequests({ run_work_request: false, deploy_staging: false, deploy_production: false });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not submit the enhancement request.");
     } finally { setSubmitting(false); }
   };
 
   if (!open) return null;
+  const workWillStart = policy.run_work_request === "always"
+    || (policy.run_work_request === "ask" && automationRequests.run_work_request);
+  const hasAskOptions = policy.run_work_request === "ask"
+    || policy.deploy_staging === "ask"
+    || policy.deploy_production === "ask";
   return <div style={styles.overlay} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section role="dialog" aria-modal="true" aria-label={heading} style={styles.dialog} onPaste={onPaste}>
       <header style={styles.header}>
@@ -204,6 +239,21 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
               <button type="button" aria-label={`Remove ${image.name}`} onClick={() => removeImage(image.id)} style={{ position: "absolute", top: 4, right: 4, width: 23, height: 23, padding: 0, border: 0, borderRadius: 12, cursor: "pointer", background: "rgba(15,23,42,.78)", color: "#fff" }}>×</button>
             </div>)}</div>}
           </div>
+          {hasAskOptions && <fieldset style={{ margin: "16px 0 0", padding: 14, border: "1px solid #d7dee7", borderRadius: 11 }}>
+            <legend style={{ padding: "0 5px", color: "#344054", fontSize: 12, fontWeight: 700 }}>Optional automation</legend>
+            {policy.run_work_request === "ask" && <label style={{ display: "flex", gap: 9, alignItems: "flex-start", color: "#344054", fontSize: 13, cursor: "pointer" }}>
+              <input type="checkbox" aria-label="Start work on this request" checked={automationRequests.run_work_request} onChange={(event) => setAutomationRequests((current) => ({ ...current, run_work_request: event.target.checked, ...(!event.target.checked ? { deploy_staging: false, deploy_production: false } : {}) }))} />
+              <span><strong>Start work on this request</strong><span style={{ display: "block", marginTop: 2, color: "#697586", fontSize: 11 }}>Otherwise it will remain a Pending Work Request for the product team.</span></span>
+            </label>}
+            {policy.deploy_staging === "ask" && <label style={{ display: "flex", gap: 9, alignItems: "center", marginTop: 11, color: workWillStart ? "#344054" : "#98a2b3", fontSize: 13, cursor: workWillStart ? "pointer" : "not-allowed" }}>
+              <input type="checkbox" aria-label="Deploy to staging" disabled={!workWillStart} checked={automationRequests.deploy_staging} onChange={(event) => setAutomationRequests((current) => ({ ...current, deploy_staging: event.target.checked }))} />
+              <strong>Deploy to staging after implementation</strong>
+            </label>}
+            {policy.deploy_production === "ask" && <label style={{ display: "flex", gap: 9, alignItems: "center", marginTop: 11, color: workWillStart ? "#344054" : "#98a2b3", fontSize: 13, cursor: workWillStart ? "pointer" : "not-allowed" }}>
+              <input type="checkbox" aria-label="Deploy to production" disabled={!workWillStart} checked={automationRequests.deploy_production} onChange={(event) => setAutomationRequests((current) => ({ ...current, deploy_production: event.target.checked }))} />
+              <strong>Deploy to production after required validation</strong>
+            </label>}
+          </fieldset>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 20 }}><button type="button" onClick={onClose} style={{ ...styles.button, background: "#eef1f5", color: "#344054" }}>Cancel</button><button type="submit" disabled={submitting} style={{ ...styles.button, background: "#2563a8", color: "#fff", opacity: submitting ? .65 : 1 }}>{submitting ? "Submitting…" : "Submit enhancement"}</button></div>
         </form> : <div>
           {loadingHistory ? <div>Loading…</div> : history.length ? history.map((request) => <article key={request.id} style={styles.historyItem}><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><strong>{request.title}</strong><span style={{ color: "#526276", fontSize: 12 }}>{request.status.replaceAll("_", " ")}</span></div><div style={{ marginTop: 5, color: "#6c7787", fontSize: 12 }}>{request.linked_work_request?.id ? `Work Request ${request.linked_work_request.id}` : request.id}</div></article>) : <div style={{ color: "#697586" }}>No enhancement requests yet.</div>}

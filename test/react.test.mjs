@@ -24,7 +24,7 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   const client = {
     enabled: true,
     endpoint: "/api/handrail-enhancements",
-    discover: async () => ({ enhancement_reporting: { enabled: true, user_enabled: false, access_level: null } }),
+    discover: async () => ({ enhancement_reporting: { enabled: true, user_enabled: false, access_level: null, policy: { cells: { run_work_request: "ask", deploy_staging: "ask", deploy_production: "never" } } } }),
     submit: async (input) => {
       submissions.push(input);
       return {
@@ -64,6 +64,9 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   assert.equal(renderer.root.findAll((node) => node.children?.includes("My requests")).length, 0);
   assert.equal(renderer.root.findAllByProps({ role: "alert" }).length, 0);
 
+  await act(async () => renderer.root.findByProps({ "aria-label": "Start work on this request" }).props.onChange({ target: { checked: true } }));
+  await act(async () => renderer.root.findByProps({ "aria-label": "Deploy to staging" }).props.onChange({ target: { checked: true } }));
+
   let prevented = 0;
   await act(async () => {
     pasteTargets[0].props.onPaste({
@@ -93,6 +96,7 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   assert.equal(submissions[0].images.length, 1);
   assert.equal(submissions[0].images[0].filename, "clipboard.png");
   assert.equal(submissions[0].images[0].source, "clipboard");
+  assert.deepEqual(submissions[0].automationRequests, { run_work_request: true, deploy_staging: true, deploy_production: false });
   await act(async () => renderer.unmount());
 });
 
@@ -100,7 +104,7 @@ test("the React dialog silently reveals My requests only for enabled enhancement
   const client = {
     enabled: true,
     endpoint: "/api/handrail-enhancements",
-    discover: async () => ({ enhancement_reporting: { enabled: true, user_enabled: true, access_level: "user" } }),
+    discover: async () => ({ enhancement_reporting: { enabled: true, user_enabled: true, access_level: "user", policy: { cells: { run_work_request: "ask", deploy_staging: "ask", deploy_production: "never" } } } }),
     submit: async () => { throw new Error("not used"); },
     list: async () => ({
       contract_version: "v1",
@@ -118,5 +122,10 @@ test("the React dialog silently reveals My requests only for enabled enhancement
   });
   assert.equal(renderer.root.findAll((node) => node.children?.includes("My requests")).length, 1);
   assert.equal(renderer.root.findAllByProps({ role: "alert" }).length, 0);
+  const startWork = renderer.root.findByProps({ "aria-label": "Start work on this request" });
+  const deployStaging = renderer.root.findByProps({ "aria-label": "Deploy to staging" });
+  assert.equal(deployStaging.props.disabled, true);
+  await act(async () => startWork.props.onChange({ target: { checked: true } }));
+  assert.equal(renderer.root.findByProps({ "aria-label": "Deploy to staging" }).props.disabled, false);
   await act(async () => renderer.unmount());
 });

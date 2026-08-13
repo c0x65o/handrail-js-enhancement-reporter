@@ -9,7 +9,7 @@ import {
 
 const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
 
-test("browser submissions are same-origin, pending-only payloads with uploaded and pasted images", async () => {
+test("browser submissions are same-origin policy requests with uploaded and pasted images", async () => {
   const calls = [];
   const reporter = createEnhancementReporter({
     endpoint: "/api/handrail-enhancements",
@@ -24,6 +24,7 @@ test("browser submissions are same-origin, pending-only payloads with uploaded a
     title: "Saved views",
     description: "Let me save these filters.",
     idempotencyKey: "intent-1",
+    automationRequests: { run_work_request: true, deploy_staging: true },
     images: [
       { data: new Blob([png], { type: "image/png" }), filename: "upload.png", source: "upload" },
       { data: `data:image/png;base64,${Buffer.from(png).toString("base64")}`, filename: "paste.png", source: "clipboard" },
@@ -38,6 +39,7 @@ test("browser submissions are same-origin, pending-only payloads with uploaded a
   assert.equal(payload.context.app_version, "1.2.3");
   assert.deepEqual(payload.attachments.map((item) => item.source), ["upload", "clipboard"]);
   assert.equal(payload.reporter_sdk.package, "@handrail/enhancement-reporter");
+  assert.deepEqual(payload.automation_requests, { run_work_request: true, deploy_staging: true, deploy_production: false });
   assert.equal("token" in payload, false);
 });
 

@@ -13,6 +13,17 @@ export interface EnhancementBridgeClient {
   downloadAttachment(input: { request_id: string; attachment_id: string }): Promise<{ data: Uint8Array; filename: string | null; mime_type: string; size_bytes: number }>;
 }
 
+function automationRequests(value: unknown): Record<string, boolean> {
+  const source = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  return {
+    run_work_request: source.run_work_request === true,
+    deploy_staging: source.deploy_staging === true,
+    deploy_production: source.deploy_production === true,
+  };
+}
+
 export interface SameOriginEnhancementReporterConfig<RequestType extends Request = Request> {
   readonly enabled?: boolean;
   readonly routeBasePath?: string;
@@ -112,6 +123,7 @@ function enhancementPayload(body: Record<string, any>): Record<string, unknown> 
       viewport: clean(context.viewport, 80) || null,
     },
     reporter_sdk: reporterIdentity("node"),
+    automation_requests: automationRequests(body.automation_requests),
     attachments,
   };
 }

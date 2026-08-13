@@ -33,7 +33,7 @@ test("handler requires an authenticated Known User session", async () => {
   assert.equal((await response.json()).code, "enhancement_user_authentication_required");
 });
 
-test("handler overwrites browser policy and submits a non-executing pending enhancement", async () => {
+test("handler overwrites raw execution fields and forwards only enhancement checkbox requests", async () => {
   const { handler, calls } = setup();
   const response = await handler(new Request("https://app.example/api/handrail-enhancements", {
     method: "POST",
@@ -46,6 +46,7 @@ test("handler overwrites browser policy and submits a non-executing pending enha
       requested_delivery_ceiling: "production",
       auto_deploy_env: "production",
       run_codex: true,
+      automation_requests: { run_work_request: true, deploy_staging: true, unexpected: true },
       attachments: [],
     }),
   }));
@@ -56,6 +57,7 @@ test("handler overwrites browser policy and submits a non-executing pending enha
   assert.equal(payload.requested_delivery_ceiling, "work_request");
   assert.equal(payload.run_codex, false);
   assert.equal(payload.auto_deploy_env, null);
+  assert.deepEqual(payload.automation_requests, { run_work_request: true, deploy_staging: true, deploy_production: false });
   assert.equal(payload.reporter_sdk.package, "@handrail/enhancement-reporter");
 });
 
