@@ -1,0 +1,83 @@
+{
+  "name": "@handrail/enhancement-reporter",
+  "version": "0.1.1",
+  "description": "Authenticated web enhancement request UI and same-origin Handrail bridge integration",
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./server": {
+      "import": {
+        "types": "./dist/server.d.ts",
+        "default": "./dist/server.js"
+      },
+      "require": {
+        "types": "./dist/server.d.cts",
+        "default": "./dist/server.cjs"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.js"
+      },
+      "require": {
+        "types": "./dist/react.d.cts",
+        "default": "./dist/react.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "generate:release": "node ./scripts/generate-release.mjs",
+    "build": "npm run generate:release && tsup",
+    "typecheck": "npm run generate:release && tsc --noEmit -p tsconfig.json",
+    "pretest": "npm run build",
+    "test": "node --test test/*.test.mjs",
+    "check": "npm run build && npm run typecheck && node --test test/*.test.mjs && npm pack --dry-run",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run check"
+  },
+  "peerDependencies": {
+    "@handrail/mcp": ">=0.1.8 <0.2.0",
+    "react": ">=18 <20"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@handrail/mcp": "file:../handrail-mcp",
+    "@types/react": "^19.1.9",
+    "esbuild": "^0.25.8",
+    "react": "^19.1.1",
+    "react-test-renderer": "^19.2.8",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
