@@ -129,3 +129,73 @@ test("the React dialog silently reveals My requests only for enabled enhancement
   assert.equal(renderer.root.findByProps({ "aria-label": "Deploy to staging" }).props.disabled, false);
   await act(async () => renderer.unmount());
 });
+
+test("history pages on demand, shows deployment versions, and dismisses without cancellation", async () => {
+  const listCalls = [];
+  const dismissCalls = [];
+  const requests = [
+    {
+      id: "request-1",
+      title: "First enhancement",
+      status: "succeeded",
+      terminal: true,
+      linked_work_request: { id: "work-1" },
+      release_tracking: {
+        auto_commit: { commits: [{ version: "2.0.0" }] },
+        environments: [{
+          environment: "production",
+          deployment_state: "fully_deployed",
+          targets: [{ contains_change: true, current_version: "2.0.0" }],
+        }],
+      },
+    },
+    {
+      id: "request-2",
+      title: "Older enhancement",
+      status: "succeeded",
+      terminal: true,
+      linked_work_request: { id: "work-2" },
+      release_tracking: { auto_commit: { commits: [{ version: "1.9.0" }] }, environments: [] },
+    },
+  ];
+  const client = {
+    enabled: true,
+    endpoint: "/api/handrail-enhancements",
+    discover: async () => ({ enhancement_reporting: { enabled: true, user_enabled: true, access_level: "user" } }),
+    submit: async () => { throw new Error("not used"); },
+    list: async ({ limit, offset = 0 }) => {
+      listCalls.push({ limit, offset });
+      return {
+        contract_version: "v1",
+        requests: requests.slice(offset, offset + limit),
+        pagination: { limit, offset, total: requests.length, has_more: offset + limit < requests.length },
+      };
+    },
+    dismiss: async (requestId) => {
+      dismissCalls.push(requestId);
+      return { contract_version: "v1", request_id: requestId, dismissed_at: "2026-08-13T20:00:00.000Z", underlying_request_preserved: true };
+    },
+  };
+  let renderer;
+  await act(async () => {
+    renderer = create(createElement(EnhancementReporterDialog, {
+      open: true,
+      onClose() {},
+      client,
+      historyPageSize: 1,
+    }));
+  });
+  const historyTab = renderer.root.find((node) => node.type === "button" && node.children?.includes("My requests"));
+  await act(async () => historyTab.props.onClick());
+  assert.deepEqual(listCalls, [{ limit: 1, offset: 0 }]);
+  assert.equal(renderer.root.findAll((node) => node.children?.includes("Production deployed · v2.0.0")).length, 1);
+  const showMore = renderer.root.find((node) => node.type === "button" && node.children?.includes("Show more"));
+  await act(async () => showMore.props.onClick());
+  assert.deepEqual(listCalls, [{ limit: 1, offset: 0 }, { limit: 1, offset: 1 }]);
+  assert.equal(renderer.root.findAll((node) => node.children?.includes("Not deployed · v1.9.0")).length, 1);
+  const dismiss = renderer.root.findByProps({ "aria-label": "Dismiss First enhancement" });
+  await act(async () => dismiss.props.onClick());
+  assert.deepEqual(dismissCalls, ["request-1"]);
+  assert.equal(renderer.root.findAllByProps({ "aria-label": "Dismiss First enhancement" }).length, 0);
+  await act(async () => renderer.unmount());
+});

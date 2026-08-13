@@ -9,6 +9,7 @@ export interface EnhancementBridgeClient {
   list(input?: Record<string, unknown>): Promise<any>;
   lookup(input: { request_id: string }): Promise<any>;
   releaseStatus(input: { request_id: string }): Promise<any>;
+  dismiss(input: { request_id: string }): Promise<any>;
   cancel(input: { request_id: string; reason?: string | null }): Promise<any>;
   downloadAttachment(input: { request_id: string; attachment_id: string }): Promise<{ data: Uint8Array; filename: string | null; mime_type: string; size_bytes: number }>;
 }
@@ -177,6 +178,7 @@ export function createSameOriginEnhancementReporterHandler<RequestType extends R
         if (!requestId) return json(404, { error: "Enhancement request not found.", code: "enhancement_request_not_found" });
         if (request.method === "GET" && parts.length === 2) return json(200, await client.lookup({ request_id: requestId }));
         if (request.method === "GET" && parts.length === 3 && parts[2] === "release-status") return json(200, await client.releaseStatus({ request_id: requestId }));
+        if (request.method === "POST" && parts.length === 3 && parts[2] === "dismiss") return json(200, await client.dismiss({ request_id: requestId }));
         if (request.method === "GET" && parts.length === 4 && parts[2] === "attachments") {
           const attachmentId = decodePathPart(parts[3]);
           if (!attachmentId) return json(404, { error: "Enhancement image not found.", code: "enhancement_attachment_not_found" });

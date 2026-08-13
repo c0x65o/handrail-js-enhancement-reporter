@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   EnhancementReporterError,
   createEnhancementReporter,
+  enhancementReleaseSummary,
   normalizeEnhancementImages,
 } from "../dist/index.js";
 
@@ -54,4 +55,44 @@ test("image normalization validates types, signatures, and count", async () => {
 test("absolute and cross-origin browser endpoints are rejected", () => {
   assert.throws(() => createEnhancementReporter({ endpoint: "https://handrail.example/api" }), { code: "invalid_configuration" });
   assert.throws(() => createEnhancementReporter({ endpoint: "//handrail.example/api" }), { code: "invalid_configuration" });
+});
+
+test("history release summaries prefer production and report the change version", () => {
+  const production = enhancementReleaseSummary({
+    release_tracking: {
+      auto_commit: { commits: [{ version: "1.4.0", commit_sha: "abc" }] },
+      environments: [
+        { environment: "staging", deployment_state: "fully_deployed", targets: [{ contains_change: true, current_version: "1.4.0" }] },
+        { environment: "production", deployment_state: "fully_deployed", targets: [{ contains_change: true, current_version: "1.4.0" }] },
+      ],
+    },
+  });
+  assert.deepEqual(production, {
+    state: "deployed",
+    label: "Production deployed · v1.4.0",
+    environment: "production",
+    version: "v1.4.0",
+  });
+  assert.equal(enhancementReleaseSummary({
+    release_tracking: { auto_commit: { commits: [{ version: "1.5.0" }] }, environments: [] },
+  }).label, "Not deployed · v1.5.0");
+  assert.equal(enhancementReleaseSummary({ release_tracking: null }).label, "Not deployed");
+});
+
+test("browser dismissal stays on the same-origin reporter endpoint", async () => {
+  const calls = [];
+  const reporter = createEnhancementReporter({
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({
+        contract_version: "v1",
+        request_id: "request-1",
+        dismissed_at: "2026-08-13T20:00:00.000Z",
+        underlying_request_preserved: true,
+      }));
+    },
+  });
+  assert.equal((await reporter.dismiss("request-1")).underlying_request_preserved, true);
+  assert.equal(calls[0].url, "/api/handrail-enhancements/requests/request-1/dismiss");
+  assert.equal(calls[0].init.method, "POST");
 });

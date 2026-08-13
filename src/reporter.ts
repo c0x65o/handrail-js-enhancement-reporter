@@ -70,16 +70,50 @@ export interface EnhancementRequestRecord {
     readonly size_bytes: number;
     readonly download_path: string;
   }[];
-  readonly release_tracking?: unknown;
+  readonly release_tracking?: EnhancementReleaseTracking | null;
+  readonly dismissed_at?: string | null;
   readonly created_at?: string;
   readonly updated_at?: string;
   readonly [key: string]: unknown;
+}
+
+export interface EnhancementReleaseTarget {
+  readonly current_version?: string | null;
+  readonly change_version?: string | null;
+  readonly contains_change?: boolean | null;
+}
+
+export interface EnhancementReleaseEnvironment {
+  readonly environment: string;
+  readonly deployment_state: "fully_deployed" | "partially_deployed" | "not_deployed" | "unknown" | "no_targets" | string;
+  readonly targets?: readonly EnhancementReleaseTarget[];
+}
+
+export interface EnhancementReleaseTracking {
+  readonly auto_commit?: {
+    readonly commits?: readonly { readonly version?: string | null; readonly commit_sha?: string | null }[];
+  };
+  readonly environments?: readonly EnhancementReleaseEnvironment[];
+}
+
+export interface EnhancementReleaseSummary {
+  readonly state: "deployed" | "partially_deployed" | "not_deployed";
+  readonly label: string;
+  readonly environment: string | null;
+  readonly version: string | null;
 }
 
 export interface EnhancementRequestPage {
   readonly contract_version: "v1";
   readonly requests: readonly EnhancementRequestRecord[];
   readonly pagination: { readonly limit: number; readonly offset: number; readonly total: number; readonly has_more: boolean };
+}
+
+export interface EnhancementDismissResult {
+  readonly contract_version: "v1";
+  readonly request_id: string;
+  readonly dismissed_at: string;
+  readonly underlying_request_preserved: true;
 }
 
 export class EnhancementReporterError extends Error {
@@ -96,6 +130,63 @@ export class EnhancementReporterError extends Error {
 
 function clean(value: unknown, max = 20_000): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function record(value: unknown): Record<string, any> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, any>
+    : null;
+}
+
+function displayVersion(value: unknown): string | null {
+  const version = clean(value, 160);
+  if (!version) return null;
+  return version.startsWith("v") ? version : `v${version}`;
+}
+
+export function enhancementReleaseSummary(request: Pick<EnhancementRequestRecord, "release_tracking">): EnhancementReleaseSummary {
+  const tracking = record(request.release_tracking);
+  const environments = Array.isArray(tracking?.environments)
+    ? tracking.environments.map(record).filter(Boolean) as Record<string, any>[]
+    : [];
+  const environmentPriority = new Map([["production", 0], ["staging", 1], ["dev", 2]]);
+  const deployed = environments
+    .filter((environment) => ["fully_deployed", "partially_deployed"].includes(clean(environment.deployment_state, 80)))
+    .sort((left, right) => (
+      (environmentPriority.get(clean(left.environment, 80).toLowerCase()) ?? 10)
+      - (environmentPriority.get(clean(right.environment, 80).toLowerCase()) ?? 10)
+    ))[0];
+  if (deployed) {
+    const environment = clean(deployed.environment, 80).toLowerCase() || "environment";
+    const targets = Array.isArray(deployed.targets)
+      ? deployed.targets.map(record).filter(Boolean) as Record<string, any>[]
+      : [];
+    const versions = [...new Set(targets
+      .filter((target) => target.contains_change === true)
+      .map((target) => displayVersion(target.current_version || target.change_version))
+      .filter(Boolean))];
+    const version = versions.length === 1 ? versions[0] : null;
+    const partial = deployed.deployment_state === "partially_deployed";
+    const environmentLabel = `${environment.charAt(0).toUpperCase()}${environment.slice(1)}`;
+    return Object.freeze({
+      state: partial ? "partially_deployed" : "deployed",
+      label: `${environmentLabel} ${partial ? "partially deployed" : "deployed"}${version ? ` · ${version}` : versions.length > 1 ? " · multiple versions" : ""}`,
+      environment,
+      version,
+    });
+  }
+  const autoCommit = record(tracking?.auto_commit);
+  const commits = Array.isArray(autoCommit?.commits)
+    ? autoCommit.commits.map(record).filter(Boolean) as Record<string, any>[]
+    : [];
+  const versions = [...new Set(commits.map((commit) => displayVersion(commit.version)).filter(Boolean))];
+  const version = versions.length === 1 ? versions[0] : null;
+  return Object.freeze({
+    state: "not_deployed",
+    label: `Not deployed${version ? ` · ${version}` : versions.length > 1 ? " · multiple versions" : ""}`,
+    environment: null,
+    version,
+  });
 }
 
 function endpointPath(value: unknown): string {
@@ -211,6 +302,7 @@ export interface EnhancementReporterClient {
   list(options?: { readonly limit?: number; readonly offset?: number }): Promise<EnhancementRequestPage>;
   lookup(requestId: string): Promise<EnhancementRequestRecord>;
   releaseStatus(requestId: string): Promise<any>;
+  dismiss(requestId: string): Promise<EnhancementDismissResult>;
   cancel(requestId: string, reason?: string): Promise<EnhancementRequestRecord>;
   attachmentUrl(requestId: string, attachmentId: string): string;
 }
@@ -272,6 +364,7 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
     },
     lookup(requestId: string) { return request(`/requests/${encodeURIComponent(requestId)}`); },
     releaseStatus(requestId: string) { return request(`/requests/${encodeURIComponent(requestId)}/release-status`); },
+    dismiss(requestId: string) { return request(`/requests/${encodeURIComponent(requestId)}/dismiss`, { method: "POST", body: "{}" }); },
     cancel(requestId: string, reason?: string) { return request(`/requests/${encodeURIComponent(requestId)}/cancel`, { method: "POST", body: JSON.stringify({ reason: clean(reason, 2_000) || null }) }); },
     attachmentUrl(requestId: string, attachmentId: string) { return `${endpoint}/requests/${encodeURIComponent(requestId)}/attachments/${encodeURIComponent(attachmentId)}`; },
   });

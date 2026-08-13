@@ -17,6 +17,7 @@ import { reporterIdentity } from "./identity";
 import {
   MAX_ENHANCEMENT_IMAGES,
   createEnhancementReporter,
+  enhancementReleaseSummary,
   type EnhancementImageInput,
   type EnhancementReporterClient,
   type EnhancementReporterConfig,
@@ -79,6 +80,8 @@ export interface EnhancementReporterDialogProps {
   readonly client?: EnhancementReporterClient;
   readonly appVersion?: string;
   readonly heading?: string;
+  /** Number of recent requests shown per page. Defaults to 10 and is capped at 50. */
+  readonly historyPageSize?: number;
 }
 
 const styles: Record<string, CSSProperties> = {
@@ -112,7 +115,7 @@ function selectedFiles(files: readonly File[], source: "upload" | "clipboard", p
   });
 }
 
-export function EnhancementReporterDialog({ open, onClose, client: explicitClient, appVersion, heading = "Suggest an enhancement" }: EnhancementReporterDialogProps) {
+export function EnhancementReporterDialog({ open, onClose, client: explicitClient, appVersion, heading = "Suggest an enhancement", historyPageSize = 10 }: EnhancementReporterDialogProps) {
   const contextClient = useContext(ReporterContext);
   const client = explicitClient || contextClient;
   if (!client) throw new Error("EnhancementReporterDialog requires a client or EnhancementReporterProvider");
@@ -121,14 +124,18 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
   const [description, setDescription] = useState("");
   const [images, setImages] = useState<SelectedImage[]>([]);
   const [history, setHistory] = useState<readonly EnhancementRequestRecord[]>([]);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyTotal, setHistoryTotal] = useState(0);
   const [historyAvailable, setHistoryAvailable] = useState(false);
   const [policy, setPolicy] = useState<EnhancementPolicyCells>(PENDING_POLICY);
   const [automationRequests, setAutomationRequests] = useState({ run_work_request: false, deploy_staging: false, deploy_production: false });
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [dismissingRequestId, setDismissingRequestId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<EnhancementRequestRecord | null>(null);
   const previewUrls = useRef(new Set<string>());
+  const pageSize = Math.max(1, Math.min(50, Math.floor(historyPageSize) || 10));
 
   useEffect(() => () => {
     for (const url of previewUrls.current) URL.revokeObjectURL(url);
@@ -140,6 +147,9 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
     let cancelled = false;
     setTab("new");
     setHistoryAvailable(false);
+    setHistory([]);
+    setHistoryHasMore(false);
+    setHistoryTotal(0);
     setPolicy(PENDING_POLICY);
     setAutomationRequests({ run_work_request: false, deploy_staging: false, deploy_production: false });
     void client.discover().then((discovery) => {
@@ -154,15 +164,36 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
     return () => { cancelled = true; };
   }, [client, open]);
 
-  const loadHistory = useCallback(async () => {
+  const loadHistory = useCallback(async (offset = 0) => {
     setLoadingHistory(true);
     setError(null);
-    try { setHistory((await client.list({ limit: 20 })).requests); }
+    try {
+      const page = await client.list({ limit: pageSize, offset });
+      setHistory((current) => offset === 0
+        ? page.requests
+        : [...current, ...page.requests.filter((request) => !current.some((existing) => existing.id === request.id))]);
+      setHistoryHasMore(page.pagination.has_more);
+      setHistoryTotal(page.pagination.total);
+    }
     catch (caught) { setError(caught instanceof Error ? caught.message : "Could not load enhancement requests."); }
     finally { setLoadingHistory(false); }
-  }, [client]);
+  }, [client, pageSize]);
 
-  useEffect(() => { if (open && tab === "history") void loadHistory(); }, [open, tab, loadHistory]);
+  useEffect(() => { if (open && tab === "history") void loadHistory(0); }, [open, tab, loadHistory]);
+
+  const dismissHistoryRequest = useCallback(async (requestId: string) => {
+    setDismissingRequestId(requestId);
+    setError(null);
+    try {
+      await client.dismiss(requestId);
+      setHistory((current) => current.filter((request) => request.id !== requestId));
+      setHistoryTotal((current) => Math.max(0, current - 1));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not dismiss the enhancement request.");
+    } finally {
+      setDismissingRequestId(null);
+    }
+  }, [client]);
 
   const addFiles = useCallback((files: readonly File[], source: "upload" | "clipboard") => {
     const added = selectedFiles(files, source, previewUrls.current);
@@ -256,8 +287,22 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
           </fieldset>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 20 }}><button type="button" onClick={onClose} style={{ ...styles.button, background: "#eef1f5", color: "#344054" }}>Cancel</button><button type="submit" disabled={submitting} style={{ ...styles.button, background: "#2563a8", color: "#fff", opacity: submitting ? .65 : 1 }}>{submitting ? "Submitting…" : "Submit enhancement"}</button></div>
         </form> : <div>
-          {loadingHistory ? <div>Loading…</div> : history.length ? history.map((request) => <article key={request.id} style={styles.historyItem}><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><strong>{request.title}</strong><span style={{ color: "#526276", fontSize: 12 }}>{request.status.replaceAll("_", " ")}</span></div><div style={{ marginTop: 5, color: "#6c7787", fontSize: 12 }}>{request.linked_work_request?.id ? `Work Request ${request.linked_work_request.id}` : request.id}</div></article>) : <div style={{ color: "#697586" }}>No enhancement requests yet.</div>}
-          <button type="button" onClick={() => void loadHistory()} style={{ ...styles.button, marginTop: 16, background: "#eef1f5", color: "#344054" }}>Refresh</button>
+          {loadingHistory && history.length === 0 ? <div>Loading…</div> : history.length ? history.map((request) => {
+            const release = enhancementReleaseSummary(request);
+            return <article key={request.id} style={styles.historyItem}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><strong>{request.title}</strong><span style={{ color: "#526276", fontSize: 12 }}>{request.status.replaceAll("_", " ")}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 5, color: "#6c7787", fontSize: 12 }}>
+                <span>{release.label}</span>
+                <button type="button" aria-label={`Dismiss ${request.title}`} disabled={dismissingRequestId === request.id} onClick={() => void dismissHistoryRequest(request.id)} style={{ border: 0, padding: 0, color: "#6c7787", background: "transparent", cursor: "pointer", textDecoration: "underline" }}>{dismissingRequestId === request.id ? "Dismissing…" : "Dismiss"}</button>
+              </div>
+              <div style={{ marginTop: 5, color: "#98a2b3", fontSize: 11 }}>{request.linked_work_request?.id ? `Work Request ${request.linked_work_request.id}` : request.id}</div>
+            </article>;
+          }) : <div style={{ color: "#697586" }}>No enhancement requests yet.</div>}
+          <div style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 16 }}>
+            {historyHasMore && <button type="button" disabled={loadingHistory} onClick={() => void loadHistory(history.length)} style={{ ...styles.button, background: "#eef1f5", color: "#344054" }}>{loadingHistory ? "Loading…" : "Show more"}</button>}
+            <button type="button" disabled={loadingHistory} onClick={() => void loadHistory(0)} style={{ ...styles.button, background: "#eef1f5", color: "#344054" }}>Refresh</button>
+            {historyTotal > 0 && <span style={{ color: "#98a2b3", fontSize: 11 }}>{history.length} of {historyTotal}</span>}
+          </div>
         </div>}
       </div>
     </section>

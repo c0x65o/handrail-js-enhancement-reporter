@@ -10,6 +10,7 @@ function setup(session = "session-1") {
     list: async (input) => { calls.push(["list", input]); return { contract_version: "v1", requests: [], pagination: { limit: 20, offset: 0, total: 0, has_more: false } }; },
     lookup: async ({ request_id }) => ({ id: request_id, status: "needs_attention", terminal: false }),
     releaseStatus: async ({ request_id }) => ({ contract_version: "v1", bridge_request_id: request_id }),
+    dismiss: async ({ request_id }) => { calls.push(["dismiss", { request_id }]); return { contract_version: "v1", request_id, dismissed_at: "2026-08-13T20:00:00.000Z", underlying_request_preserved: true }; },
     cancel: async ({ request_id }) => ({ id: request_id, status: "cancelled", terminal: true }),
     submit: async (input) => { calls.push(["submit", input]); return { request: { id: "bridge-1", status: "needs_attention", terminal: false, linked_work_request: { id: "wr-1" } }, replayed: false }; },
     downloadAttachment: async () => ({ data: Uint8Array.from([1, 2, 3]), filename: "screen.png", mime_type: "image/png", size_bytes: 3 }),
@@ -70,6 +71,14 @@ test("history and image downloads remain on the authenticated same-origin route"
   assert.equal(image.status, 200);
   assert.equal(image.headers.get("content-type"), "image/png");
   assert.deepEqual([...new Uint8Array(await image.arrayBuffer())], [1, 2, 3]);
+  const dismissed = await handler(new Request("https://app.example/api/handrail-enhancements/requests/bridge-1/dismiss", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "https://app.example" },
+    body: "{}",
+  }));
+  assert.equal(dismissed.status, 200);
+  assert.equal((await dismissed.json()).underlying_request_preserved, true);
+  assert.deepEqual(calls.at(-1), ["dismiss", { request_id: "bridge-1" }]);
 });
 
 test("cross-site submissions are rejected before session resolution", async () => {

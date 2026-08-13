@@ -13,9 +13,11 @@ export {
   MAX_ENHANCEMENT_IMAGE_BYTES,
   MAX_ENHANCEMENT_IMAGE_TOTAL_BYTES,
   createEnhancementReporter,
+  enhancementReleaseSummary,
   normalizeEnhancementImages,
 } from "./reporter";
 export type {
+  EnhancementDismissResult,
   EnhancementImageInput,
   EnhancementImageMimeType,
   EnhancementImageSource,
@@ -24,5 +26,9 @@ export type {
   EnhancementRequestInput,
   EnhancementRequestPage,
   EnhancementRequestRecord,
+  EnhancementReleaseEnvironment,
+  EnhancementReleaseSummary,
+  EnhancementReleaseTarget,
+  EnhancementReleaseTracking,
   NormalizedEnhancementImage,
 } from "./reporter";

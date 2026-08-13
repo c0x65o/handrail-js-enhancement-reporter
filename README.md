@@ -84,6 +84,8 @@ When an action is configured as **Ask**, the dialog renders its checkbox. A stag
 
 Every authenticated Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin policy route before rendering navigation. Users with an explicit Enhancement Automation User or Full Access tracking assignment receive the **My requests** tab; unassigned users see only the submission form, without an access warning. The tab lists only requests owned by the current authenticated principal, and returned attachment URLs pass through the same principal-scoped route.
 
+**My requests** initially loads the 10 newest requests and offers **Show more** for older pages. Each row summarizes the strongest release evidence available, preferring production and then staging, and includes the deployed application version when Handrail has recorded one. **Dismiss** removes a row from that principal's default history; it never deletes, cancels, or changes the linked Work Request. Set `historyPageSize` on `EnhancementReporterDialog` to use another page size from 1 through 50.
+
 ## Headless browser API
 
 ```ts
@@ -103,14 +105,15 @@ await reporter.submit({
 const mine = await reporter.list();
 const current = await reporter.lookup(mine.requests[0].id);
 const release = await reporter.releaseStatus(current.id);
+await reporter.dismiss(current.id);
 ```
 
-`releaseStatus` reports the eventual full commit SHA/version and its deployment state once staff approve and deliver the linked Work Request.
+`list({ limit, offset })` is newest-first and returns bounded pagination metadata. `releaseStatus` reports the eventual full commit SHA/version and its deployment state once staff approve and deliver the linked Work Request. `dismiss` hides the row from the current principal's subsequent lists while preserving the canonical request and linked Work Request.
 
 ## Security contract
 
 - Browser transport is same-origin only and always sends `credentials: "same-origin"`.
 - The application resolves a session token afresh for every request; no anonymous or static-user fallback exists.
-- Handrail resolves the session through Known Users and scopes submit, list, lookup, attachment, cancellation, and release status to that principal.
+- Handrail resolves the session through Known Users and scopes submit, list, lookup, attachment, dismissal, cancellation, and release status to that principal.
 - Server code overwrites raw delivery and automation fields. It forwards only the reporter's strict checkbox request object, and Handrail intersects those choices with the authenticated user's enhancement-specific matrix.
 - MCP/API credentials remain server-only.
