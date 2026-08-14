@@ -1,5 +1,3 @@
-import { HandrailClient } from "@handrail/mcp/client";
-
 import { ENHANCEMENT_SOURCE, reporterIdentity } from "./identity";
 import { MAX_ENHANCEMENT_IMAGES } from "./reporter";
 
@@ -41,6 +39,19 @@ export interface SameOriginEnhancementReporterConfig<RequestType extends Request
 }
 
 const MAX_FORWARD_BODY_BYTES = 22 * 1024 * 1024;
+const BRIDGE_REQUEST_TIMEOUT_MS = 10_000;
+
+class EnhancementBridgeError extends Error {
+  readonly code: string;
+  readonly statusCode: number | null;
+
+  constructor(message: string, code: string, statusCode: number | null = null, cause?: unknown) {
+    super(message, cause === undefined ? undefined : { cause });
+    this.name = "EnhancementBridgeError";
+    this.code = code;
+    this.statusCode = statusCode;
+  }
+}
 
 function clean(value: unknown, max = 20_000): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -48,6 +59,166 @@ function clean(value: unknown, max = 20_000): string {
 
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+}
+
+function bridgeApiUrl(value: unknown): string {
+  const raw = clean(value, 2_000);
+  try {
+    const parsed = new URL(raw);
+    if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error();
+    return parsed.toString().replace(/\/+$/u, "");
+  } catch {
+    throw new EnhancementBridgeError(
+      "The Handrail enhancement bridge URL is invalid.",
+      "enhancement_reporter_invalid_configuration",
+      500,
+    );
+  }
+}
+
+function bridgeRequestUrl(apiUrl: string, path: string): string {
+  const base = new URL(`${apiUrl}/`);
+  const resolved = new URL(path.replace(/^\/+/, ""), base);
+  const basePath = base.pathname.endsWith("/") ? base.pathname : `${base.pathname}/`;
+  if (resolved.origin !== base.origin || !resolved.pathname.startsWith(basePath)) {
+    throw new EnhancementBridgeError(
+      "The Handrail enhancement bridge request path is invalid.",
+      "enhancement_reporter_bridge_scope_denied",
+      500,
+    );
+  }
+  return resolved.toString();
+}
+
+function redactBridgeMessage(value: unknown, secrets: readonly string[]): string {
+  let message = clean(value, 500);
+  for (const secret of secrets) if (secret) message = message.split(secret).join("[REDACTED]");
+  return message;
+}
+
+function parseJson(text: string): any {
+  try { return text ? JSON.parse(text) : null; } catch { return null; }
+}
+
+function bridgeErrorFromResponse(response: Response, payload: any, secrets: readonly string[]): EnhancementBridgeError {
+  return new EnhancementBridgeError(
+    redactBridgeMessage(payload?.error || payload?.message, secrets) || `Handrail rejected the enhancement request (${response.status}).`,
+    clean(payload?.code, 120) || "enhancement_reporter_bridge_http_error",
+    response.status,
+  );
+}
+
+function assertBridgeContract(payload: any, contractVersion: "v1"): any {
+  const received = clean(payload?.contract_version || payload?.request?.contract_version, 40);
+  if (received !== contractVersion) {
+    throw new EnhancementBridgeError(
+      "Handrail returned an incompatible enhancement bridge response.",
+      "enhancement_reporter_bridge_contract_mismatch",
+      502,
+    );
+  }
+  return payload;
+}
+
+function defaultBridgeClient<RequestType extends Request>(
+  config: SameOriginEnhancementReporterConfig<RequestType>,
+  applicationSessionToken: string,
+): EnhancementBridgeClient {
+  const apiUrl = bridgeApiUrl(config.apiUrl);
+  const contractVersion = config.contractVersion || "v1";
+  const token = clean(config.token, 8_192);
+  const projectId = clean(config.projectId, 160);
+  const capabilityId = clean(config.capabilityId, 160);
+  const fetchImpl = config.fetch || globalThis.fetch;
+  if (!token || !projectId || !capabilityId || typeof fetchImpl !== "function") {
+    throw new EnhancementBridgeError(
+      "The Handrail enhancement bridge server configuration is incomplete.",
+      "enhancement_reporter_invalid_configuration",
+      500,
+    );
+  }
+
+  const headers = (body: boolean, idempotencyKey?: string): Record<string, string> => ({
+    accept: "application/json",
+    authorization: `Bearer ${token}`,
+    "x-handrail-api-contract-version": contractVersion,
+    "x-handrail-application-session": applicationSessionToken,
+    ...(body ? { "content-type": "application/json" } : {}),
+    ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
+  });
+  const perform = async (path: string, init: RequestInit): Promise<Response> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), BRIDGE_REQUEST_TIMEOUT_MS);
+    try {
+      return await fetchImpl(bridgeRequestUrl(apiUrl, path), { ...init, signal: controller.signal });
+    } catch (error) {
+      if (error instanceof EnhancementBridgeError) throw error;
+      throw new EnhancementBridgeError(
+        error instanceof Error && error.name === "AbortError"
+          ? "The Handrail enhancement bridge request timed out."
+          : "The Handrail enhancement bridge request failed.",
+        error instanceof Error && error.name === "AbortError"
+          ? "enhancement_reporter_bridge_timeout"
+          : "enhancement_reporter_bridge_network_error",
+        502,
+        error,
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+  const request = async (
+    path: string,
+    { method = "GET", payload, idempotencyKey }: { method?: string; payload?: unknown; idempotencyKey?: string } = {},
+  ): Promise<any> => {
+    const hasBody = payload !== undefined;
+    const response = await perform(path, {
+      method,
+      headers: headers(hasBody, idempotencyKey),
+      ...(hasBody ? { body: JSON.stringify(payload) } : {}),
+    });
+    const body = parseJson(await response.text());
+    if (!response.ok) throw bridgeErrorFromResponse(response, body, [token, applicationSessionToken]);
+    return assertBridgeContract(body, contractVersion);
+  };
+
+  return Object.freeze({
+    discover: () => request("discovery"),
+    submit: (input: Record<string, unknown>) => request("requests", {
+      method: "POST",
+      payload: input,
+      idempotencyKey: clean(input.idempotency_key, 255) || undefined,
+    }),
+    list: (input: Record<string, unknown> = {}) => {
+      const query = new URLSearchParams();
+      if (input.submission_kind) query.set("submission_kind", String(input.submission_kind));
+      if (input.limit != null) query.set("limit", String(input.limit));
+      if (input.offset != null) query.set("offset", String(input.offset));
+      return request(`requests${query.size ? `?${query.toString()}` : ""}`);
+    },
+    lookup: ({ request_id }: { request_id: string }) => request(`requests/${encodeURIComponent(request_id)}`),
+    releaseStatus: ({ request_id }: { request_id: string }) => request(`requests/${encodeURIComponent(request_id)}/release-status`),
+    dismiss: ({ request_id }: { request_id: string }) => request(`requests/${encodeURIComponent(request_id)}/dismiss`, { method: "POST", payload: {} }),
+    cancel: ({ request_id, reason }: { request_id: string; reason?: string | null }) => request(`requests/${encodeURIComponent(request_id)}/cancel`, { method: "POST", payload: { reason: reason || null } }),
+    async downloadAttachment({ request_id, attachment_id }: { request_id: string; attachment_id: string }) {
+      const response = await perform(`requests/${encodeURIComponent(request_id)}/attachments/${encodeURIComponent(attachment_id)}`, {
+        method: "GET",
+        headers: headers(false),
+      });
+      if (!response.ok) {
+        const body = parseJson(await response.text());
+        throw bridgeErrorFromResponse(response, body, [token, applicationSessionToken]);
+      }
+      const data = new Uint8Array(await response.arrayBuffer());
+      const disposition = response.headers.get("content-disposition") || "";
+      return {
+        data,
+        filename: disposition.match(/filename="([^"]*)"/iu)?.[1] || null,
+        mime_type: response.headers.get("content-type") || "application/octet-stream",
+        size_bytes: data.byteLength,
+      };
+    },
+  });
 }
 
 function routeBasePath(value: unknown): string {
@@ -144,16 +315,7 @@ export function createSameOriginEnhancementReporterHandler<RequestType extends R
 ): (request: RequestType) => Promise<Response> {
   if (typeof config.resolveApplicationSessionToken !== "function") throw new Error("resolveApplicationSessionToken is required");
   const basePath = routeBasePath(config.routeBasePath);
-  const createClient = config.createClient || ((sessionToken: string) => new HandrailClient({
-    enabled: true,
-    apiUrl: config.apiUrl,
-    contractVersion: config.contractVersion || "v1",
-    projectId: config.projectId,
-    capabilityId: config.capabilityId,
-    token: config.token,
-    sessionToken,
-    fetch: config.fetch,
-  }, {}) as EnhancementBridgeClient);
+  const createClient = config.createClient || ((sessionToken: string) => defaultBridgeClient(config, sessionToken));
 
   return async (request: RequestType): Promise<Response> => {
     if (config.enabled === false) return json(404, { error: "Enhancement reporting is disabled.", code: "enhancement_reporting_disabled" });
@@ -165,9 +327,9 @@ export function createSameOriginEnhancementReporterHandler<RequestType extends R
     const parts = relative ? relative.split("/") : [];
     const sessionToken = clean(await config.resolveApplicationSessionToken(request), 8_192);
     if (!sessionToken) return json(401, { error: "An authenticated application user is required.", code: "enhancement_user_authentication_required" });
-    const client = createClient(sessionToken);
 
     try {
+      const client = createClient(sessionToken);
       if (request.method === "GET" && parts.length === 1 && parts[0] === "policy") return json(200, await client.discover());
       if (request.method === "GET" && parts.length === 0) {
         const url = new URL(request.url);

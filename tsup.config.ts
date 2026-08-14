@@ -4,7 +4,7 @@ export default defineConfig({
   entry: { index: "src/index.ts", server: "src/server.ts", react: "src/react.tsx" },
   clean: true,
   dts: true,
-  external: ["@handrail/mcp", "@handrail/mcp/client", "react", "react/jsx-runtime"],
+  external: ["react", "react/jsx-runtime"],
   format: ["esm", "cjs"],
   outDir: "dist",
   platform: "neutral",

@@ -1,19 +1,17 @@
 # @handrail/enhancement-reporter
 
-Authenticated, web-only customer enhancement requests for Handrail. The package provides a browser client, a ready-to-use React dialog, and a framework-neutral same-origin server handler backed by `@handrail/mcp`.
+Authenticated, web-only customer enhancement requests for Handrail. The package provides a browser client, a ready-to-use React dialog, and a framework-neutral same-origin server handler with its own narrow Handrail REST transport. It does not require `@handrail/mcp`.
 
 Version `0.2.x` applies the enhancement-specific Default, User, or Full Access matrix. Pending stays non-executing, Ask renders customer checkboxes, and Always applies automatically. Staging and production remain bounded by that matrix and Handrail's normal deployment gates. Every request stays scoped to the authenticated Known User who submitted it.
 
 ## Install
 
-Install the latest available reporter and compatible MCP peer directly from
-their canonical GitHub repositories; neither package should be assumed to
-exist in the npm registry:
+Install the latest available reporter directly from its canonical GitHub
+repository; the package should not be assumed to exist in the npm registry:
 
 ```sh
 npm install \
-  '@handrail/enhancement-reporter@github:c0x65o/handrail-js-enhancement-reporter' \
-  '@handrail/mcp@github:c0x65o/handrail-mcp'
+  '@handrail/enhancement-reporter@github:c0x65o/handrail-js-enhancement-reporter'
 ```
 
 You do not need a Handrail Maintenance commit hash, tag, or dependency pin
@@ -26,7 +24,7 @@ package directories, or local file dependencies. Maintenance compares the
 resolved Git commit with this repository and can move every installed project
 to the same current revision through its controlled update plan.
 
-The browser entry never accepts or transmits a Handrail bridge credential. Mount the server handler on the same origin, behind your normal application authentication boundary, and keep the MCP credential in server-only environment variables.
+The enhancement reporter stands on its own; `@handrail/mcp` remains a separate AI-tool connector and is not an application integration dependency. The browser entry never accepts or transmits a Handrail bridge credential. Mount the server handler on the same origin, behind your normal application authentication boundary, and keep the bridge credential in server-only environment variables.
 
 ## Server route
 
@@ -116,4 +114,4 @@ await reporter.dismiss(current.id);
 - The application resolves a session token afresh for every request; no anonymous or static-user fallback exists.
 - Handrail resolves the session through Known Users and scopes submit, list, lookup, attachment, dismissal, cancellation, and release status to that principal.
 - Server code overwrites raw delivery and automation fields. It forwards only the reporter's strict checkbox request object, and Handrail intersects those choices with the authenticated user's enhancement-specific matrix.
-- MCP/API credentials remain server-only.
+- Handrail bridge credentials remain server-only.

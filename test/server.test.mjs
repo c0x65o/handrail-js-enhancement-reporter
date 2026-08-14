@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { createSameOriginEnhancementReporterHandler } from "../dist/server.js";
+
+test("package has no MCP install or runtime dependency", async () => {
+  const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  const serverBundle = await readFile(new URL("../dist/server.js", import.meta.url), "utf8");
+  assert.equal(manifest.dependencies?.["@handrail/mcp"], undefined);
+  assert.equal(manifest.peerDependencies?.["@handrail/mcp"], undefined);
+  assert.equal(manifest.devDependencies?.["@handrail/mcp"], undefined);
+  assert.doesNotMatch(serverBundle, /@handrail\/mcp/u);
+});
 
 function setup(session = "session-1") {
   const calls = [];
@@ -32,6 +42,42 @@ test("handler requires an authenticated Known User session", async () => {
   const response = await handler(new Request("https://app.example/api/handrail-enhancements"));
   assert.equal(response.status, 401);
   assert.equal((await response.json()).code, "enhancement_user_authentication_required");
+});
+
+test("default server transport stands alone without the MCP package", async () => {
+  const calls = [];
+  const handler = createSameOriginEnhancementReporterHandler({
+    apiUrl: "https://handrail.example/api/assistant-change-bridge/v1",
+    projectId: "project-1",
+    capabilityId: "capability-1",
+    token: "server-secret",
+    resolveApplicationSessionToken: async () => "known-user-session",
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({
+        contract_version: "v1",
+        request_id: "bridge-1",
+        dismissed_at: "2026-08-14T14:00:00.000Z",
+        underlying_request_preserved: true,
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+
+  const response = await handler(new Request("https://app.example/api/handrail-enhancements/requests/bridge-1/dismiss", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "https://app.example" },
+    body: "{}",
+  }));
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).underlying_request_preserved, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "https://handrail.example/api/assistant-change-bridge/v1/requests/bridge-1/dismiss");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.body, "{}");
+  assert.equal(calls[0].init.headers.authorization, "Bearer server-secret");
+  assert.equal(calls[0].init.headers["x-handrail-api-contract-version"], "v1");
+  assert.equal(calls[0].init.headers["x-handrail-application-session"], "known-user-session");
 });
 
 test("handler overwrites raw execution fields and forwards only enhancement checkbox requests", async () => {
