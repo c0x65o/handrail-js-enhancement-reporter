@@ -76,6 +76,17 @@ test("history release summaries prefer production and report the change version"
   assert.equal(enhancementReleaseSummary({
     release_tracking: { auto_commit: { commits: [{ version: "1.5.0" }] }, environments: [] },
   }).label, "Not deployed · v1.5.0");
+  assert.deepEqual(enhancementReleaseSummary({
+    release_tracking: {
+      auto_commit: { commits: [{ version: "1.5.0" }] },
+      environments: [{ environment: "production", deployment_state: "unknown", targets: [] }],
+    },
+  }), {
+    state: "unknown",
+    label: "Deployment status unavailable · v1.5.0",
+    environment: null,
+    version: "v1.5.0",
+  });
   assert.equal(enhancementReleaseSummary({ release_tracking: null }).label, "Not deployed");
 });
 
