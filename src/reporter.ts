@@ -183,7 +183,9 @@ export function enhancementReleaseSummary(request: Pick<EnhancementRequestRecord
   const versions = [...new Set(commits.map((commit) => displayVersion(commit.version)).filter(Boolean))];
   const version = versions.length === 1 ? versions[0] : null;
   const deploymentStates = environments.map((environment) => clean(environment.deployment_state, 80));
-  const statusUnknown = deploymentStates.includes("unknown")
+  const statusUnknown = !tracking
+    || deploymentStates.length === 0
+    || deploymentStates.includes("unknown")
     || (deploymentStates.length > 0 && deploymentStates.every((state) => state === "no_targets"));
   if (statusUnknown) {
     return Object.freeze({

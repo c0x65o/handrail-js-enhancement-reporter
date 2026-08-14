@@ -192,7 +192,7 @@ test("history pages on demand, shows deployment versions, and dismisses without 
   const showMore = renderer.root.find((node) => node.type === "button" && node.children?.includes("Show more"));
   await act(async () => showMore.props.onClick());
   assert.deepEqual(listCalls, [{ limit: 1, offset: 0 }, { limit: 1, offset: 1 }]);
-  assert.equal(renderer.root.findAll((node) => node.children?.includes("Not deployed · v1.9.0")).length, 1);
+  assert.equal(renderer.root.findAll((node) => node.children?.includes("Deployment status unavailable · v1.9.0")).length, 1);
   const dismiss = renderer.root.findByProps({ "aria-label": "Dismiss First enhancement" });
   await act(async () => dismiss.props.onClick());
   assert.deepEqual(dismissCalls, ["request-1"]);
