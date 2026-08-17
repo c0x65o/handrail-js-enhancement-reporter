@@ -55,11 +55,48 @@ export interface EnhancementReporterConfig {
   readonly fetch?: typeof fetch;
 }
 
+export const ENHANCEMENT_HISTORY_STATUS_GROUPS = Object.freeze([
+  "needs_attention",
+  "in_progress",
+  "succeeded",
+  "closed",
+] as const);
+export const ENHANCEMENT_HISTORY_SORTS = Object.freeze(["newest", "oldest"] as const);
+export const ENHANCEMENT_HISTORY_VISIBILITIES = Object.freeze(["active", "dismissed", "all"] as const);
+
+export type EnhancementHistoryStatusGroup = (typeof ENHANCEMENT_HISTORY_STATUS_GROUPS)[number];
+export type EnhancementHistorySort = (typeof ENHANCEMENT_HISTORY_SORTS)[number];
+export type EnhancementHistoryVisibility = (typeof ENHANCEMENT_HISTORY_VISIBILITIES)[number];
+
+export interface EnhancementHistoryCapabilities {
+  readonly summary: boolean;
+  readonly search: boolean;
+  readonly status_groups: readonly EnhancementHistoryStatusGroup[];
+  readonly sorts: readonly EnhancementHistorySort[];
+  readonly visibilities: readonly EnhancementHistoryVisibility[];
+  readonly restore: boolean;
+  readonly dismiss_succeeded: boolean;
+}
+
+export interface EnhancementReporterDiscovery {
+  readonly contract_version?: "v1";
+  readonly enhancement_reporting?: {
+    readonly enabled?: boolean;
+    readonly user_enabled?: boolean;
+    readonly access_level?: string | null;
+    readonly history?: EnhancementHistoryCapabilities;
+    readonly policy?: unknown;
+  };
+  readonly operations?: readonly string[];
+  readonly [key: string]: unknown;
+}
+
 export interface EnhancementRequestRecord {
   readonly id: string;
   readonly title: string;
   readonly description?: string | null;
   readonly status: string;
+  readonly status_group: EnhancementHistoryStatusGroup;
   readonly terminal: boolean;
   readonly submission_kind?: "enhancement";
   readonly linked_work_request?: { readonly id: string } | null;
@@ -71,7 +108,8 @@ export interface EnhancementRequestRecord {
     readonly download_path: string;
   }[];
   readonly release_tracking?: EnhancementReleaseTracking | null;
-  readonly dismissed_at?: string | null;
+  readonly dismissed_at: string | null;
+  readonly dismissed: boolean;
   readonly created_at?: string;
   readonly updated_at?: string;
   readonly [key: string]: unknown;
@@ -107,14 +145,55 @@ export interface EnhancementReleaseSummary {
 export interface EnhancementRequestPage {
   readonly contract_version: "v1";
   readonly requests: readonly EnhancementRequestRecord[];
+  readonly summary: EnhancementHistorySummary | null;
+  readonly query: EnhancementHistoryQuery | null;
   readonly pagination: { readonly limit: number; readonly offset: number; readonly total: number; readonly has_more: boolean };
+}
+
+export interface EnhancementHistorySummary {
+  readonly total: number;
+  readonly needs_attention: number;
+  readonly in_progress: number;
+  readonly succeeded: number;
+  readonly closed: number;
+}
+
+export interface EnhancementHistoryQuery {
+  readonly search: string;
+  readonly statusGroup: EnhancementHistoryStatusGroup | null;
+  readonly sort: EnhancementHistorySort;
+  readonly visibility: EnhancementHistoryVisibility;
+}
+
+export interface EnhancementHistoryListOptions {
+  readonly limit?: number;
+  readonly offset?: number;
+  readonly search?: string;
+  readonly statusGroup?: EnhancementHistoryStatusGroup;
+  readonly sort?: EnhancementHistorySort;
+  readonly visibility?: EnhancementHistoryVisibility;
 }
 
 export interface EnhancementDismissResult {
   readonly contract_version: "v1";
   readonly request_id: string;
+  readonly dismissed: true;
   readonly dismissed_at: string;
   readonly underlying_request_preserved: true;
+}
+
+export interface EnhancementRestoreResult {
+  readonly contract_version: "v1";
+  readonly request_id: string;
+  readonly dismissed: false;
+  readonly dismissed_at: null;
+  readonly underlying_request_preserved: true;
+}
+
+export interface EnhancementDismissSucceededResult {
+  readonly contract_version: "v1";
+  readonly dismissed_count: number;
+  readonly underlying_requests_preserved: true;
 }
 
 export class EnhancementReporterError extends Error {
@@ -311,12 +390,14 @@ async function responseJson(response: Response): Promise<any> {
 export interface EnhancementReporterClient {
   readonly enabled: boolean;
   readonly endpoint: string;
-  discover(): Promise<any>;
+  discover(): Promise<EnhancementReporterDiscovery>;
   submit(input: EnhancementRequestInput): Promise<{ readonly request: EnhancementRequestRecord; readonly replayed: boolean }>;
-  list(options?: { readonly limit?: number; readonly offset?: number }): Promise<EnhancementRequestPage>;
+  list(options?: EnhancementHistoryListOptions): Promise<EnhancementRequestPage>;
   lookup(requestId: string): Promise<EnhancementRequestRecord>;
   releaseStatus(requestId: string): Promise<any>;
   dismiss(requestId: string): Promise<EnhancementDismissResult>;
+  restore(requestId: string): Promise<EnhancementRestoreResult>;
+  dismissSucceeded(): Promise<EnhancementDismissSucceededResult>;
   cancel(requestId: string, reason?: string): Promise<EnhancementRequestRecord>;
   attachmentUrl(requestId: string, attachmentId: string): string;
 }
@@ -372,13 +453,20 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
         }),
       });
     },
-    list({ limit = 20, offset = 0 } = {}) {
+    list(options: EnhancementHistoryListOptions = {}) {
+      const { limit = 20, offset = 0, search, statusGroup, sort, visibility } = options;
       const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+      if (clean(search, 200)) query.set("search", clean(search, 200));
+      if (statusGroup) query.set("status_group", statusGroup);
+      if (sort) query.set("sort", sort);
+      if (visibility) query.set("visibility", visibility);
       return request(`?${query.toString()}`);
     },
     lookup(requestId: string) { return request(`/requests/${encodeURIComponent(requestId)}`); },
     releaseStatus(requestId: string) { return request(`/requests/${encodeURIComponent(requestId)}/release-status`); },
     dismiss(requestId: string) { return request(`/requests/${encodeURIComponent(requestId)}/dismiss`, { method: "POST", body: "{}" }); },
+    restore(requestId: string) { return request(`/requests/${encodeURIComponent(requestId)}/dismiss`, { method: "DELETE" }); },
+    dismissSucceeded() { return request("/requests/dismiss-succeeded", { method: "POST", body: "{}" }); },
     cancel(requestId: string, reason?: string) { return request(`/requests/${encodeURIComponent(requestId)}/cancel`, { method: "POST", body: JSON.stringify({ reason: clean(reason, 2_000) || null }) }); },
     attachmentUrl(requestId: string, attachmentId: string) { return `${endpoint}/requests/${encodeURIComponent(requestId)}/attachments/${encodeURIComponent(attachmentId)}`; },
   });

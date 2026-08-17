@@ -8,6 +8,9 @@ export {
 } from "./identity";
 export {
   ENHANCEMENT_IMAGE_TYPES,
+  ENHANCEMENT_HISTORY_SORTS,
+  ENHANCEMENT_HISTORY_STATUS_GROUPS,
+  ENHANCEMENT_HISTORY_VISIBILITIES,
   EnhancementReporterError,
   MAX_ENHANCEMENT_IMAGES,
   MAX_ENHANCEMENT_IMAGE_BYTES,
@@ -18,11 +21,20 @@ export {
 } from "./reporter";
 export type {
   EnhancementDismissResult,
+  EnhancementDismissSucceededResult,
+  EnhancementHistoryListOptions,
+  EnhancementHistoryCapabilities,
+  EnhancementHistoryQuery,
+  EnhancementHistorySort,
+  EnhancementHistoryStatusGroup,
+  EnhancementHistorySummary,
+  EnhancementHistoryVisibility,
   EnhancementImageInput,
   EnhancementImageMimeType,
   EnhancementImageSource,
   EnhancementReporterClient,
   EnhancementReporterConfig,
+  EnhancementReporterDiscovery,
   EnhancementRequestInput,
   EnhancementRequestPage,
   EnhancementRequestRecord,
@@ -30,5 +42,6 @@ export type {
   EnhancementReleaseSummary,
   EnhancementReleaseTarget,
   EnhancementReleaseTracking,
+  EnhancementRestoreResult,
   NormalizedEnhancementImage,
 } from "./reporter";

@@ -98,6 +98,7 @@ test("browser dismissal stays on the same-origin reporter endpoint", async () =>
       return new Response(JSON.stringify({
         contract_version: "v1",
         request_id: "request-1",
+        dismissed: true,
         dismissed_at: "2026-08-13T20:00:00.000Z",
         underlying_request_preserved: true,
       }));
@@ -106,4 +107,67 @@ test("browser dismissal stays on the same-origin reporter endpoint", async () =>
   assert.equal((await reporter.dismiss("request-1")).underlying_request_preserved, true);
   assert.equal(calls[0].url, "/api/handrail-enhancements/requests/request-1/dismiss");
   assert.equal(calls[0].init.method, "POST");
+});
+
+test("headless history exposes UI counts, filters, restore, and bulk succeeded dismissal", async () => {
+  const calls = [];
+  const reporter = createEnhancementReporter({
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      if (String(url).includes("dismiss-succeeded")) {
+        return new Response(JSON.stringify({
+          contract_version: "v1",
+          dismissed_count: 2,
+          underlying_requests_preserved: true,
+        }));
+      }
+      if (init?.method === "DELETE") {
+        return new Response(JSON.stringify({
+          contract_version: "v1",
+          request_id: "request-1",
+          dismissed: false,
+          dismissed_at: null,
+          underlying_request_preserved: true,
+        }));
+      }
+      return new Response(JSON.stringify({
+        contract_version: "v1",
+        requests: [],
+        summary: {
+          total: 7,
+          needs_attention: 1,
+          in_progress: 2,
+          succeeded: 3,
+          closed: 1,
+        },
+        query: {
+          search: "calendar",
+          statusGroup: "succeeded",
+          sort: "oldest",
+          visibility: "dismissed",
+        },
+        pagination: { limit: 9, offset: 0, total: 3, has_more: false },
+      }));
+    },
+  });
+
+  const page = await reporter.list({
+    limit: 9,
+    search: "calendar",
+    statusGroup: "succeeded",
+    sort: "oldest",
+    visibility: "dismissed",
+  });
+  assert.equal(page.summary.total, 7);
+  assert.equal(page.summary.succeeded, 3);
+  assert.match(calls[0].url, /search=calendar/u);
+  assert.match(calls[0].url, /status_group=succeeded/u);
+  assert.match(calls[0].url, /sort=oldest/u);
+  assert.match(calls[0].url, /visibility=dismissed/u);
+
+  assert.equal((await reporter.restore("request-1")).dismissed, false);
+  assert.equal(calls[1].init.method, "DELETE");
+  assert.equal((await reporter.dismissSucceeded()).dismissed_count, 2);
+  assert.equal(calls[2].url, "/api/handrail-enhancements/requests/dismiss-succeeded");
+  assert.equal(calls[2].init.method, "POST");
 });

@@ -21,6 +21,8 @@ function setup(session = "session-1") {
     lookup: async ({ request_id }) => ({ id: request_id, status: "needs_attention", terminal: false }),
     releaseStatus: async ({ request_id }) => ({ contract_version: "v1", bridge_request_id: request_id }),
     dismiss: async ({ request_id }) => { calls.push(["dismiss", { request_id }]); return { contract_version: "v1", request_id, dismissed_at: "2026-08-13T20:00:00.000Z", underlying_request_preserved: true }; },
+    restore: async ({ request_id }) => { calls.push(["restore", { request_id }]); return { contract_version: "v1", request_id, dismissed: false, dismissed_at: null, underlying_request_preserved: true }; },
+    dismissSucceeded: async () => { calls.push(["dismissSucceeded"]); return { contract_version: "v1", dismissed_count: 2, underlying_requests_preserved: true }; },
     cancel: async ({ request_id }) => ({ id: request_id, status: "cancelled", terminal: true }),
     submit: async (input) => { calls.push(["submit", input]); return { request: { id: "bridge-1", status: "needs_attention", terminal: false, linked_work_request: { id: "wr-1" } }, replayed: false }; },
     downloadAttachment: async () => ({ data: Uint8Array.from([1, 2, 3]), filename: "screen.png", mime_type: "image/png", size_bytes: 3 }),
@@ -108,11 +110,19 @@ test("handler overwrites raw execution fields and forwards only enhancement chec
   assert.equal(payload.reporter_sdk.package, "@handrail/enhancement-reporter");
 });
 
-test("history and image downloads remain on the authenticated same-origin route", async () => {
+test("history controls and image downloads remain on the authenticated same-origin route", async () => {
   const { handler, calls } = setup();
-  const list = await handler(new Request("https://app.example/api/handrail-enhancements?limit=10"));
+  const list = await handler(new Request("https://app.example/api/handrail-enhancements?limit=10&search=calendar&status_group=succeeded&sort=oldest&visibility=dismissed"));
   assert.equal(list.status, 200);
-  assert.deepEqual(calls[0], ["list", { submission_kind: "enhancement", limit: "10", offset: undefined }]);
+  assert.deepEqual(calls[0], ["list", {
+    submission_kind: "enhancement",
+    limit: "10",
+    offset: undefined,
+    search: "calendar",
+    status_group: "succeeded",
+    sort: "oldest",
+    visibility: "dismissed",
+  }]);
   const image = await handler(new Request("https://app.example/api/handrail-enhancements/requests/bridge-1/attachments/image-1"));
   assert.equal(image.status, 200);
   assert.equal(image.headers.get("content-type"), "image/png");
@@ -125,6 +135,21 @@ test("history and image downloads remain on the authenticated same-origin route"
   assert.equal(dismissed.status, 200);
   assert.equal((await dismissed.json()).underlying_request_preserved, true);
   assert.deepEqual(calls.at(-1), ["dismiss", { request_id: "bridge-1" }]);
+  const restored = await handler(new Request("https://app.example/api/handrail-enhancements/requests/bridge-1/dismiss", {
+    method: "DELETE",
+    headers: { origin: "https://app.example" },
+  }));
+  assert.equal(restored.status, 200);
+  assert.equal((await restored.json()).dismissed, false);
+  assert.deepEqual(calls.at(-1), ["restore", { request_id: "bridge-1" }]);
+  const cleared = await handler(new Request("https://app.example/api/handrail-enhancements/requests/dismiss-succeeded", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "https://app.example" },
+    body: "{}",
+  }));
+  assert.equal(cleared.status, 200);
+  assert.equal((await cleared.json()).dismissed_count, 2);
+  assert.deepEqual(calls.at(-1), ["dismissSucceeded"]);
 });
 
 test("cross-site submissions are rejected before session resolution", async () => {

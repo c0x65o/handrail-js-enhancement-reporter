@@ -323,5 +323,25 @@ export function EnhancementReporterButton({ label = "Suggest an enhancement", cl
 }
 
 export { createEnhancementReporter, reporterIdentity };
-export type { EnhancementReporterClient, EnhancementReporterConfig, EnhancementRequestRecord } from "./reporter";
+export {
+  ENHANCEMENT_HISTORY_SORTS,
+  ENHANCEMENT_HISTORY_STATUS_GROUPS,
+  ENHANCEMENT_HISTORY_VISIBILITIES,
+} from "./reporter";
+export type {
+  EnhancementDismissResult,
+  EnhancementDismissSucceededResult,
+  EnhancementHistoryListOptions,
+  EnhancementHistoryCapabilities,
+  EnhancementHistoryQuery,
+  EnhancementHistorySort,
+  EnhancementHistoryStatusGroup,
+  EnhancementHistorySummary,
+  EnhancementHistoryVisibility,
+  EnhancementReporterClient,
+  EnhancementReporterConfig,
+  EnhancementReporterDiscovery,
+  EnhancementRequestRecord,
+  EnhancementRestoreResult,
+} from "./reporter";
 export const REACT_SDK_IDENTITY = reporterIdentity("react");

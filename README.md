@@ -84,6 +84,8 @@ Every authenticated Known User may submit while the runtime enhancement switch i
 
 **My requests** initially loads the 10 newest requests and offers **Show more** for older pages. Each row summarizes the strongest release evidence available, preferring production and then staging, and includes the deployed application version when Handrail has recorded one. Missing release tracking or environment targets display **Deployment status unavailable** rather than **Not deployed**. **Dismiss** removes a row from that principal's default history; it never deletes, cancels, or changes the linked Work Request. Set `historyPageSize` on `EnhancementReporterDialog` to use another page size from 1 through 50.
 
+The SDK does not impose a history screen on app-owned integrations. `list` returns exact summary counts for a tab badge and status filters, plus the server-normalized query. Apps can style Active and Dismissed views independently, restore individual requests, or clear all succeeded requests while preserving every canonical Work Request.
+
 ## Headless browser API
 
 ```ts
@@ -100,18 +102,29 @@ await reporter.submit({
   images: [{ data: file, filename: file.name, source: "upload" }],
 });
 
-const mine = await reporter.list();
+const badgePage = await reporter.list({ limit: 1, visibility: "active" });
+const myRequestsBadge = badgePage.summary?.total ?? badgePage.pagination.total;
+
+const mine = await reporter.list({
+  limit: 10,
+  search: "calendar",
+  statusGroup: "succeeded",
+  sort: "newest",
+  visibility: "active",
+});
 const current = await reporter.lookup(mine.requests[0].id);
 const release = await reporter.releaseStatus(current.id);
 await reporter.dismiss(current.id);
+await reporter.restore(current.id);
+await reporter.dismissSucceeded();
 ```
 
-`list({ limit, offset })` is newest-first and returns bounded pagination metadata. `releaseStatus` reports the eventual full commit SHA/version and its deployment state once staff approve and deliver the linked Work Request. `dismiss` hides the row from the current principal's subsequent lists while preserving the canonical request and linked Work Request.
+`list({ limit, offset, search, statusGroup, sort, visibility })` returns bounded pagination metadata, exact counts for `needs_attention`, `in_progress`, `succeeded`, and `closed`, and the normalized query. `visibility` accepts `active`, `dismissed`, or `all`. `releaseStatus` reports the eventual full commit SHA/version and its deployment state once staff approve and deliver the linked Work Request. `dismiss`, `restore`, and `dismissSucceeded` change only the current principal's history presentation while preserving the canonical request and linked Work Request.
 
 ## Security contract
 
 - Browser transport is same-origin only and always sends `credentials: "same-origin"`.
 - The application resolves a session token afresh for every request; no anonymous or static-user fallback exists.
-- Handrail resolves the session through Known Users and scopes submit, list, lookup, attachment, dismissal, cancellation, and release status to that principal.
+- Handrail resolves the session through Known Users and scopes submit, list, lookup, attachment, dismissal, restoration, bulk history clearing, cancellation, and release status to that principal.
 - Server code overwrites raw delivery and automation fields. It forwards only the reporter's strict checkbox request object, and Handrail intersects those choices with the authenticated user's enhancement-specific matrix.
 - Handrail bridge credentials remain server-only.

@@ -8,6 +8,8 @@ export interface EnhancementBridgeClient {
   lookup(input: { request_id: string }): Promise<any>;
   releaseStatus(input: { request_id: string }): Promise<any>;
   dismiss(input: { request_id: string }): Promise<any>;
+  restore(input: { request_id: string }): Promise<any>;
+  dismissSucceeded(): Promise<any>;
   cancel(input: { request_id: string; reason?: string | null }): Promise<any>;
   downloadAttachment(input: { request_id: string; attachment_id: string }): Promise<{ data: Uint8Array; filename: string | null; mime_type: string; size_bytes: number }>;
 }
@@ -194,11 +196,17 @@ function defaultBridgeClient<RequestType extends Request>(
       if (input.submission_kind) query.set("submission_kind", String(input.submission_kind));
       if (input.limit != null) query.set("limit", String(input.limit));
       if (input.offset != null) query.set("offset", String(input.offset));
+      if (input.search) query.set("search", String(input.search));
+      if (input.status_group || input.statusGroup) query.set("status_group", String(input.status_group || input.statusGroup));
+      if (input.sort) query.set("sort", String(input.sort));
+      if (input.visibility) query.set("visibility", String(input.visibility));
       return request(`requests${query.size ? `?${query.toString()}` : ""}`);
     },
     lookup: ({ request_id }: { request_id: string }) => request(`requests/${encodeURIComponent(request_id)}`),
     releaseStatus: ({ request_id }: { request_id: string }) => request(`requests/${encodeURIComponent(request_id)}/release-status`),
     dismiss: ({ request_id }: { request_id: string }) => request(`requests/${encodeURIComponent(request_id)}/dismiss`, { method: "POST", payload: {} }),
+    restore: ({ request_id }: { request_id: string }) => request(`requests/${encodeURIComponent(request_id)}/dismiss`, { method: "DELETE" }),
+    dismissSucceeded: () => request("requests/dismiss-succeeded", { method: "POST", payload: {} }),
     cancel: ({ request_id, reason }: { request_id: string; reason?: string | null }) => request(`requests/${encodeURIComponent(request_id)}/cancel`, { method: "POST", payload: { reason: reason || null } }),
     async downloadAttachment({ request_id, attachment_id }: { request_id: string; attachment_id: string }) {
       const response = await perform(`requests/${encodeURIComponent(request_id)}/attachments/${encodeURIComponent(attachment_id)}`, {
@@ -333,7 +341,18 @@ export function createSameOriginEnhancementReporterHandler<RequestType extends R
       if (request.method === "GET" && parts.length === 1 && parts[0] === "policy") return json(200, await client.discover());
       if (request.method === "GET" && parts.length === 0) {
         const url = new URL(request.url);
-        return json(200, await client.list({ submission_kind: "enhancement", limit: url.searchParams.get("limit") || undefined, offset: url.searchParams.get("offset") || undefined }));
+        return json(200, await client.list({
+          submission_kind: "enhancement",
+          limit: url.searchParams.get("limit") || undefined,
+          offset: url.searchParams.get("offset") || undefined,
+          search: url.searchParams.get("search") || undefined,
+          status_group: url.searchParams.get("status_group") || url.searchParams.get("statusGroup") || undefined,
+          sort: url.searchParams.get("sort") || undefined,
+          visibility: url.searchParams.get("visibility") || undefined,
+        }));
+      }
+      if (request.method === "POST" && parts.length === 2 && parts[0] === "requests" && parts[1] === "dismiss-succeeded") {
+        return json(200, await client.dismissSucceeded());
       }
       if (parts[0] === "requests" && parts.length >= 2) {
         const requestId = decodePathPart(parts[1]);
@@ -341,6 +360,7 @@ export function createSameOriginEnhancementReporterHandler<RequestType extends R
         if (request.method === "GET" && parts.length === 2) return json(200, await client.lookup({ request_id: requestId }));
         if (request.method === "GET" && parts.length === 3 && parts[2] === "release-status") return json(200, await client.releaseStatus({ request_id: requestId }));
         if (request.method === "POST" && parts.length === 3 && parts[2] === "dismiss") return json(200, await client.dismiss({ request_id: requestId }));
+        if (request.method === "DELETE" && parts.length === 3 && parts[2] === "dismiss") return json(200, await client.restore({ request_id: requestId }));
         if (request.method === "GET" && parts.length === 4 && parts[2] === "attachments") {
           const attachmentId = decodePathPart(parts[3]);
           if (!attachmentId) return json(404, { error: "Enhancement image not found.", code: "enhancement_attachment_not_found" });
@@ -364,7 +384,7 @@ export function createSameOriginEnhancementReporterHandler<RequestType extends R
         if (!payload) return json(400, { error: "A valid title, description, conversation id, and idempotency key are required.", code: "enhancement_request_invalid" });
         return json(201, await client.submit(payload));
       }
-      return new Response(null, { status: 405, headers: { allow: "GET, POST" } });
+      return new Response(null, { status: 405, headers: { allow: "GET, POST, DELETE" } });
     } catch (error) {
       return errorResponse(error);
     }
