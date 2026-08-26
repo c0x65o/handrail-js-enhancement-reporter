@@ -78,15 +78,17 @@ export function AccountMenu() {
 
 The dialog supports file upload and direct image paste from the clipboard. Accepted formats are PNG, JPEG, GIF, and WebP, with a maximum of 4 images, 5 MiB per image, and 15 MiB total. Both the browser and Handrail validate image signatures and limits.
 
-Set `reporterEmail` to the authenticated account email to prefill the packaged
-dialog's unchecked **Email me when this is fixed or deployed** control. The
-browser submits the enhancement first and then stores report-scoped consent on
-the same-origin `/requests/:requestId/subscription` route. The email is not
-included in the enhancement payload, a subscription failure is returned as a
-separate warning, and every update includes an unsubscribe link. Set
-`notificationsEnabled: false` to hide the control. Existing integrations need
-no migration because both settings and the submission `notification` field are
-optional.
+The packaged dialog shows its unchecked **Email me when this is fixed or
+deployed** control only when policy discovery confirms that the current session
+is a verified Known User with a valid configured Display/email value. It shows
+only a masked recipient hint and never asks for or sends a manual address. The
+browser submits the enhancement first and then sends report-scoped consent to
+the same-origin `/requests/:requestId/subscription` route; Handrail verifies the
+session again and derives the recipient from Known Users. A subscription
+failure is returned as a separate warning, and every update includes an
+unsubscribe link. Set `notificationsEnabled: false` to hide the control. The
+legacy `reporterEmail` option is ignored and deprecated for source
+compatibility.
 
 When an action is configured as **Ask**, the dialog renders its checkbox. A staging or production checkbox is enabled only when the Work Request will start. **Always** actions do not require a customer checkbox; **Pending** Work Request policy keeps delivery unavailable.
 

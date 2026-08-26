@@ -122,6 +122,36 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   await act(async () => renderer.unmount());
 });
 
+test("the React dialog hides notification consent without a Known User email", async () => {
+  const client = {
+    enabled: true,
+    endpoint: "/api/handrail-enhancements",
+    notificationsEnabled: true,
+    discover: async () => ({
+      enhancement_reporting: { enabled: true, user_enabled: false, access_level: null, policy: { cells: {} } },
+      reporter_notifications: { available: false, recipient_hint: null, lifecycles: ["fixed", "deployed"] },
+    }),
+    submit: async () => { throw new Error("not used"); },
+    list: async () => ({
+      contract_version: "v1",
+      requests: [],
+      pagination: { limit: 20, offset: 0, total: 0, has_more: false },
+    }),
+  };
+  let renderer;
+  await act(async () => {
+    renderer = create(createElement(EnhancementReporterDialog, {
+      open: true,
+      onClose() {},
+      client,
+    }));
+  });
+
+  assert.doesNotMatch(JSON.stringify(renderer.toJSON()), /Email me when this is fixed or deployed/u);
+  assert.equal(renderer.root.findAllByProps({ type: "email" }).length, 0);
+  await act(async () => renderer.unmount());
+});
+
 test("the React dialog silently reveals My requests only for enabled enhancement users", async () => {
   const client = {
     enabled: true,
