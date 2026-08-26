@@ -936,11 +936,11 @@ export function EnhancementReporterDialog({
             {canNotify && <fieldset style={styles.fieldset}>
               <legend style={{ padding: "0 5px", fontSize: 12, fontWeight: 700 }}>Updates</legend>
               <label style={{ ...styles.checkboxLabel, marginTop: 0 }}>
-                <input aria-label="Email me when this enhancement is fixed or deployed" type="checkbox" checked={notifyOnResolution} onChange={(event) => setNotifyOnResolution(event.target.checked)} />
+                <input aria-label="Email me when this enhancement is fixed" type="checkbox" checked={notifyOnResolution} onChange={(event) => setNotifyOnResolution(event.target.checked)} />
                 <span>
-                  <strong>Email me when this is fixed or deployed</strong>
+                  <strong>Email me when this is fixed</strong>
                   <span style={{ display: "block", marginTop: 2, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>
-                    Sent to {notificationRecipientHint || "your Known User email"}. Only updates for this enhancement; every email includes an unsubscribe link.
+                    We’ll send one email to {notificationRecipientHint || "your Known User email"} after the fix is available in the environment you’re using. It includes an unsubscribe link.
                   </span>
                 </span>
               </label>

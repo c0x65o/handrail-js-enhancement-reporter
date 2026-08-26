@@ -136,15 +136,17 @@ not depend on color alone.
 
 The dialog supports file upload and direct image paste from the clipboard. Accepted formats are PNG, JPEG, GIF, and WebP, with a maximum of 4 images, 5 MiB per image, and 15 MiB total. Both the browser and Handrail validate image signatures and limits.
 
-The packaged dialog shows its unchecked **Email me when this is fixed or
-deployed** control only when policy discovery confirms that the current session
+The packaged dialog shows its unchecked **Email me when this is fixed** control
+only when policy discovery confirms that the current session
 is a verified Known User with a valid configured Display/email value. It shows
 only a masked recipient hint and never asks for or sends a manual address. The
 browser submits the enhancement first and then sends report-scoped consent to
 the same-origin `/requests/:requestId/subscription` route; Handrail verifies the
 session again and derives the recipient from Known Users. A subscription
-failure is returned as a separate warning, and every update includes an
-unsubscribe link. Set `notificationsEnabled: false` to hide the control. The
+failure is returned as a separate warning. Handrail sends one email after
+release evidence confirms the fix is available in the environment where the
+request originated; internal Fixed and Deployed transitions do not each send
+mail. The email includes an unsubscribe link. Set `notificationsEnabled: false` to hide the control. The
 legacy `reporterEmail` option is ignored and deprecated for source
 compatibility.
 

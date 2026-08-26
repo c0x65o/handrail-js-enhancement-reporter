@@ -27,7 +27,7 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
     notificationsEnabled: true,
     discover: async () => ({
       enhancement_reporting: { enabled: true, user_enabled: false, access_level: null, policy: { cells: { run_work_request: "ask", deploy_staging: "ask", deploy_production: "never" } } },
-      reporter_notifications: { available: true, recipient_hint: "r***@example.com", lifecycles: ["fixed", "deployed"] },
+      reporter_notifications: { available: true, recipient_hint: "r***@example.com", lifecycles: ["fixed"] },
     }),
     submit: async (input) => {
       submissions.push(input);
@@ -75,7 +75,7 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   await act(async () => renderer.root.findByProps({ "aria-label": "Start work on this request" }).props.onChange({ target: { checked: true } }));
   await act(async () => renderer.root.findByProps({ "aria-label": "Deploy to staging" }).props.onChange({ target: { checked: true } }));
   const notificationCheckbox = renderer.root.findByProps({
-    "aria-label": "Email me when this enhancement is fixed or deployed",
+    "aria-label": "Email me when this enhancement is fixed",
   });
   assert.equal(notificationCheckbox.props.checked, false);
   await act(async () => notificationCheckbox.props.onChange({ target: { checked: true } }));
@@ -128,7 +128,7 @@ test("the React dialog hides notification consent without a Known User email", a
     notificationsEnabled: true,
     discover: async () => ({
       enhancement_reporting: { enabled: true, user_enabled: false, access_level: null, policy: { cells: {} } },
-      reporter_notifications: { available: false, recipient_hint: null, lifecycles: ["fixed", "deployed"] },
+      reporter_notifications: { available: false, recipient_hint: null, lifecycles: ["fixed"] },
     }),
     submit: async () => { throw new Error("not used"); },
     list: async () => ({
@@ -146,7 +146,7 @@ test("the React dialog hides notification consent without a Known User email", a
     }));
   });
 
-  assert.doesNotMatch(JSON.stringify(renderer.toJSON()), /Email me when this is fixed or deployed/u);
+  assert.doesNotMatch(JSON.stringify(renderer.toJSON()), /Email me when this is fixed/u);
   assert.equal(renderer.root.findAllByProps({ type: "email" }).length, 0);
   await act(async () => renderer.unmount());
 });
