@@ -1,7 +1,7 @@
 import { ENHANCEMENT_SOURCE, reporterIdentity } from "./identity";
 import { MAX_ENHANCEMENT_IMAGES } from "./reporter";
 
-export interface EnhancementBridgeClient {
+export interface EnhancementTransportClient {
   discover(): Promise<any>;
   submit(input: Record<string, unknown>): Promise<any>;
   subscribe?(input: { request_id: string; reporter_notification: Record<string, unknown> }): Promise<any>;
@@ -14,6 +14,9 @@ export interface EnhancementBridgeClient {
   cancel(input: { request_id: string; reason?: string | null }): Promise<any>;
   downloadAttachment(input: { request_id: string; attachment_id: string }): Promise<{ data: Uint8Array; filename: string | null; mime_type: string; size_bytes: number }>;
 }
+
+/** @deprecated Use EnhancementTransportClient. */
+export type EnhancementBridgeClient = EnhancementTransportClient;
 
 function automationRequests(value: unknown): Record<string, boolean> {
   const source = value && typeof value === "object" && !Array.isArray(value)
@@ -38,19 +41,19 @@ export interface SameOriginEnhancementReporterConfig<RequestType extends Request
   /** Resolve the authenticated application's opaque Known User session for every request. */
   readonly resolveApplicationSessionToken: (request: RequestType) => string | null | undefined | Promise<string | null | undefined>;
   /** Test/custom transport seam. Production integrations normally omit it. */
-  readonly createClient?: (applicationSessionToken: string) => EnhancementBridgeClient;
+  readonly createClient?: (applicationSessionToken: string) => EnhancementTransportClient;
 }
 
 const MAX_FORWARD_BODY_BYTES = 22 * 1024 * 1024;
 const BRIDGE_REQUEST_TIMEOUT_MS = 10_000;
 
-class EnhancementBridgeError extends Error {
+class EnhancementTransportError extends Error {
   readonly code: string;
   readonly statusCode: number | null;
 
   constructor(message: string, code: string, statusCode: number | null = null, cause?: unknown) {
     super(message, cause === undefined ? undefined : { cause });
-    this.name = "EnhancementBridgeError";
+    this.name = "EnhancementTransportError";
     this.code = code;
     this.statusCode = statusCode;
   }
@@ -64,28 +67,28 @@ function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-function bridgeApiUrl(value: unknown): string {
+function transportApiUrl(value: unknown): string {
   const raw = clean(value, 2_000);
   try {
     const parsed = new URL(raw);
     if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error();
     return parsed.toString().replace(/\/+$/u, "");
   } catch {
-    throw new EnhancementBridgeError(
-      "The Handrail enhancement bridge URL is invalid.",
+    throw new EnhancementTransportError(
+      "The Handrail enhancement transport URL is invalid.",
       "enhancement_reporter_invalid_configuration",
       500,
     );
   }
 }
 
-function bridgeRequestUrl(apiUrl: string, path: string): string {
+function transportRequestUrl(apiUrl: string, path: string): string {
   const base = new URL(`${apiUrl}/`);
   const resolved = new URL(path.replace(/^\/+/, ""), base);
   const basePath = base.pathname.endsWith("/") ? base.pathname : `${base.pathname}/`;
   if (resolved.origin !== base.origin || !resolved.pathname.startsWith(basePath)) {
-    throw new EnhancementBridgeError(
-      "The Handrail enhancement bridge request path is invalid.",
+    throw new EnhancementTransportError(
+      "The Handrail enhancement transport request path is invalid.",
       "enhancement_reporter_bridge_scope_denied",
       500,
     );
@@ -93,7 +96,7 @@ function bridgeRequestUrl(apiUrl: string, path: string): string {
   return resolved.toString();
 }
 
-function redactBridgeMessage(value: unknown, secrets: readonly string[]): string {
+function redactTransportMessage(value: unknown, secrets: readonly string[]): string {
   let message = clean(value, 500);
   for (const secret of secrets) if (secret) message = message.split(secret).join("[REDACTED]");
   return message;
@@ -103,19 +106,19 @@ function parseJson(text: string): any {
   try { return text ? JSON.parse(text) : null; } catch { return null; }
 }
 
-function bridgeErrorFromResponse(response: Response, payload: any, secrets: readonly string[]): EnhancementBridgeError {
-  return new EnhancementBridgeError(
-    redactBridgeMessage(payload?.error || payload?.message, secrets) || `Handrail rejected the enhancement request (${response.status}).`,
+function transportErrorFromResponse(response: Response, payload: any, secrets: readonly string[]): EnhancementTransportError {
+  return new EnhancementTransportError(
+    redactTransportMessage(payload?.error || payload?.message, secrets) || `Handrail rejected the enhancement request (${response.status}).`,
     clean(payload?.code, 120) || "enhancement_reporter_bridge_http_error",
     response.status,
   );
 }
 
-function assertBridgeContract(payload: any, contractVersion: "v1"): any {
+function assertTransportContract(payload: any, contractVersion: "v1"): any {
   const received = clean(payload?.contract_version || payload?.request?.contract_version, 40);
   if (received !== contractVersion) {
-    throw new EnhancementBridgeError(
-      "Handrail returned an incompatible enhancement bridge response.",
+    throw new EnhancementTransportError(
+      "Handrail returned an incompatible enhancement transport response.",
       "enhancement_reporter_bridge_contract_mismatch",
       502,
     );
@@ -123,19 +126,19 @@ function assertBridgeContract(payload: any, contractVersion: "v1"): any {
   return payload;
 }
 
-function defaultBridgeClient<RequestType extends Request>(
+function defaultTransportClient<RequestType extends Request>(
   config: SameOriginEnhancementReporterConfig<RequestType>,
   applicationSessionToken: string,
-): EnhancementBridgeClient {
-  const apiUrl = bridgeApiUrl(config.apiUrl);
+): EnhancementTransportClient {
+  const apiUrl = transportApiUrl(config.apiUrl);
   const contractVersion = config.contractVersion || "v1";
   const token = clean(config.token, 8_192);
   const projectId = clean(config.projectId, 160);
   const capabilityId = clean(config.capabilityId, 160);
   const fetchImpl = config.fetch || globalThis.fetch;
   if (!token || !projectId || !capabilityId || typeof fetchImpl !== "function") {
-    throw new EnhancementBridgeError(
-      "The Handrail enhancement bridge server configuration is incomplete.",
+    throw new EnhancementTransportError(
+      "The Handrail enhancement transport server configuration is incomplete.",
       "enhancement_reporter_invalid_configuration",
       500,
     );
@@ -153,13 +156,13 @@ function defaultBridgeClient<RequestType extends Request>(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), BRIDGE_REQUEST_TIMEOUT_MS);
     try {
-      return await fetchImpl(bridgeRequestUrl(apiUrl, path), { ...init, signal: controller.signal });
+      return await fetchImpl(transportRequestUrl(apiUrl, path), { ...init, signal: controller.signal });
     } catch (error) {
-      if (error instanceof EnhancementBridgeError) throw error;
-      throw new EnhancementBridgeError(
+      if (error instanceof EnhancementTransportError) throw error;
+      throw new EnhancementTransportError(
         error instanceof Error && error.name === "AbortError"
-          ? "The Handrail enhancement bridge request timed out."
-          : "The Handrail enhancement bridge request failed.",
+          ? "The Handrail enhancement transport request timed out."
+          : "The Handrail enhancement transport request failed.",
         error instanceof Error && error.name === "AbortError"
           ? "enhancement_reporter_bridge_timeout"
           : "enhancement_reporter_bridge_network_error",
@@ -181,8 +184,8 @@ function defaultBridgeClient<RequestType extends Request>(
       ...(hasBody ? { body: JSON.stringify(payload) } : {}),
     });
     const body = parseJson(await response.text());
-    if (!response.ok) throw bridgeErrorFromResponse(response, body, [token, applicationSessionToken]);
-    return assertBridgeContract(body, contractVersion);
+    if (!response.ok) throw transportErrorFromResponse(response, body, [token, applicationSessionToken]);
+    return assertTransportContract(body, contractVersion);
   };
 
   return Object.freeze({
@@ -223,7 +226,7 @@ function defaultBridgeClient<RequestType extends Request>(
       });
       if (!response.ok) {
         const body = parseJson(await response.text());
-        throw bridgeErrorFromResponse(response, body, [token, applicationSessionToken]);
+        throw transportErrorFromResponse(response, body, [token, applicationSessionToken]);
       }
       const data = new Uint8Array(await response.arrayBuffer());
       const disposition = response.headers.get("content-disposition") || "";
@@ -331,7 +334,7 @@ export function createSameOriginEnhancementReporterHandler<RequestType extends R
 ): (request: RequestType) => Promise<Response> {
   if (typeof config.resolveApplicationSessionToken !== "function") throw new Error("resolveApplicationSessionToken is required");
   const basePath = routeBasePath(config.routeBasePath);
-  const createClient = config.createClient || ((sessionToken: string) => defaultBridgeClient(config, sessionToken));
+  const createClient = config.createClient || ((sessionToken: string) => defaultTransportClient(config, sessionToken));
 
   return async (request: RequestType): Promise<Response> => {
     if (config.enabled === false) return json(404, { error: "Enhancement reporting is disabled.", code: "enhancement_reporting_disabled" });

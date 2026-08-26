@@ -24,7 +24,9 @@ package directories, or local file dependencies. Maintenance compares the
 resolved Git commit with this repository and can move every installed project
 to the same current revision through its controlled update plan.
 
-The enhancement reporter stands on its own; `@handrail/mcp` remains a separate AI-tool connector and is not an application integration dependency. The browser entry never accepts or transmits a Handrail bridge credential. Mount the server handler on the same origin, behind your normal application authentication boundary, and keep the bridge credential in server-only environment variables.
+The enhancement reporter stands on its own; neither the generic Assistant Change Bridge product surface nor `@handrail/mcp` is an application integration dependency. The browser entry never accepts or transmits a Handrail transport credential. Mount the server handler on the same origin, behind your normal application authentication boundary, and keep the transport credential in server-only environment variables.
+
+Handrail's **Enhancement Automation** setup provisions this transport automatically. Generic assistant actions and their user assignments may remain disabled. New integrations should use the enhancement-specific runtime names below; Handrail also emits the legacy `HANDRAIL_ASSISTANT_BRIDGE_*` names so existing applications continue to work.
 
 ## Server route
 
@@ -35,10 +37,10 @@ import { createSameOriginEnhancementReporterHandler } from "@handrail/enhancemen
 
 const handler = createSameOriginEnhancementReporterHandler({
   routeBasePath: "/api/handrail-enhancements",
-  apiUrl: process.env.HANDRAIL_ASSISTANT_BRIDGE_API_URL!,
-  projectId: process.env.HANDRAIL_ASSISTANT_BRIDGE_PROJECT_ID!,
-  capabilityId: process.env.HANDRAIL_ASSISTANT_BRIDGE_CAPABILITY_ID!,
-  token: process.env.HANDRAIL_ASSISTANT_BRIDGE_TOKEN!,
+  apiUrl: process.env.HANDRAIL_ENHANCEMENT_REPORTER_API_URL!,
+  projectId: process.env.HANDRAIL_ENHANCEMENT_REPORTER_PROJECT_ID!,
+  capabilityId: process.env.HANDRAIL_ENHANCEMENT_REPORTER_CAPABILITY_ID!,
+  token: process.env.HANDRAIL_ENHANCEMENT_REPORTER_TOKEN!,
   contractVersion: "v1",
   async resolveApplicationSessionToken(request) {
     // Read and validate your authenticated HttpOnly app session here.
@@ -225,4 +227,4 @@ function SuggestionForm() {
 - The application resolves a session token afresh for every request; no anonymous or static-user fallback exists.
 - Handrail resolves the session through Known Users and scopes submit, list, lookup, attachment, dismissal, restoration, bulk history clearing, cancellation, and release status to that principal.
 - Server code overwrites raw delivery and automation fields. It forwards only the reporter's strict checkbox request object, and Handrail intersects those choices with the authenticated user's enhancement-specific matrix.
-- Handrail bridge credentials remain server-only.
+- Handrail enhancement transport credentials remain server-only.
