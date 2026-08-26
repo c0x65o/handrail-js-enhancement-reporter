@@ -2,7 +2,7 @@
 
 Authenticated, web-only customer enhancement requests for Handrail. The package provides a browser client, a ready-to-use React dialog, and a framework-neutral same-origin server handler with its own narrow Handrail REST transport. It does not require `@handrail/mcp`.
 
-Version `0.2.x` applies the enhancement-specific Default, User, or Full Access matrix. Pending stays non-executing, Ask renders customer checkboxes, and Always applies automatically. Staging and production remain bounded by that matrix and Handrail's normal deployment gates. Every request stays scoped to the authenticated Known User who submitted it.
+Current releases apply the enhancement-specific Default, User, or Full Access matrix. Pending stays non-executing, Ask renders customer checkboxes, and Always applies automatically. Staging and production remain bounded by that matrix and Handrail's normal deployment gates. Every request stays scoped to the authenticated Known User who submitted it.
 
 ## Install
 
