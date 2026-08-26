@@ -8,18 +8,18 @@ const { EnhancementReporterDialog } = await import("../dist/react.js");
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-function pastedPng() {
+function pastedPng(name = "clipboard.png") {
   const image = new Blob([
     Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]),
   ], { type: "image/png" });
   Object.defineProperties(image, {
-    name: { value: "clipboard.png" },
+    name: { value: name },
     lastModified: { value: 1 },
   });
   return image;
 }
 
-test("the React dialog captures a pasted image once and submits it as clipboard input", async () => {
+test("the React dialog captures pasted and dropped images once and preserves their source", async () => {
   const submissions = [];
   const client = {
     enabled: true,
@@ -93,6 +93,22 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   assert.equal(prevented, 1);
   assert.equal(renderer.root.findAll((node) => node.props["aria-label"] === "Remove clipboard.png").length, 1);
 
+  const dropzone = renderer.root.findByProps({ "data-handrail-enhancement-image-dropzone": "true" });
+  const dropped = pastedPng("dropped.png");
+  const dragData = { types: ["Files"], files: [dropped], dropEffect: "none" };
+  let dropPrevented = 0;
+  await act(async () => dropzone.props.onDragOver({
+    dataTransfer: dragData,
+    preventDefault() { dropPrevented += 1; },
+  }));
+  await act(async () => dropzone.props.onDrop({
+    dataTransfer: dragData,
+    preventDefault() { dropPrevented += 1; },
+  }));
+  assert.equal(dropPrevented, 2);
+  assert.equal(dragData.dropEffect, "copy");
+  assert.equal(renderer.root.findAll((node) => node.props["aria-label"] === "Remove dropped.png").length, 1);
+
   const title = renderer.root.findByProps({ placeholder: "What should be improved?" });
   const description = renderer.root.findByProps({
     placeholder: "Describe the outcome you want. You can paste screenshots here.",
@@ -107,9 +123,11 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   });
 
   assert.equal(submissions.length, 1);
-  assert.equal(submissions[0].images.length, 1);
+  assert.equal(submissions[0].images.length, 2);
   assert.equal(submissions[0].images[0].filename, "clipboard.png");
   assert.equal(submissions[0].images[0].source, "clipboard");
+  assert.equal(submissions[0].images[1].filename, "dropped.png");
+  assert.equal(submissions[0].images[1].source, "upload");
   assert.deepEqual(submissions[0].automationRequests, { run_work_request: true, deploy_staging: true, deploy_production: false });
   assert.deepEqual(submissions[0].notification, {
     notifyOnResolution: true,

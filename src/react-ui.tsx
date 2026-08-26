@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type ChangeEvent,
   type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent as ReactDragEvent,
   type FormEvent,
   type KeyboardEvent,
   type ReactElement,
@@ -453,6 +454,7 @@ export function EnhancementReporterDialog({
   const [notificationAvailable, setNotificationAvailable] = useState(false);
   const [notificationRecipientHint, setNotificationRecipientHint] = useState<string | null>(null);
   const [images, setImages] = useState<SelectedImage[]>([]);
+  const [dragActive, setDragActive] = useState(false);
   const [history, setHistory] = useState<readonly EnhancementRequestRecord[]>([]);
   const [historyHasMore, setHistoryHasMore] = useState(false);
   const [historyTotal, setHistoryTotal] = useState(0);
@@ -660,6 +662,21 @@ export function EnhancementReporterDialog({
     if (!files.length) return;
     event.preventDefault();
     addFiles(files, "clipboard");
+  };
+
+  const onImageDragOver = (event: ReactDragEvent<HTMLElement>) => {
+    if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setDragActive(true);
+  };
+
+  const onImageDrop = (event: ReactDragEvent<HTMLElement>) => {
+    const files = Array.from(event.dataTransfer.files);
+    if (!files.length) return;
+    event.preventDefault();
+    setDragActive(false);
+    addFiles(files, "upload");
   };
 
   const removeImage = (id: string) => setImages((current) => current.filter((image) => {
@@ -922,9 +939,19 @@ export function EnhancementReporterDialog({
               Details
               <textarea style={{ ...styles.input, minHeight: 130, resize: "vertical" }} maxLength={20_000} required value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the outcome you want. You can paste screenshots here." />
             </label>
-            <div style={styles.drop}>
+            <div
+              data-handrail-enhancement-image-dropzone="true"
+              onDragEnter={onImageDragOver}
+              onDragOver={onImageDragOver}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={onImageDrop}
+              style={{
+                ...styles.drop,
+                ...(dragActive ? { borderColor: "var(--handrail-enhancement-accent)", color: "var(--handrail-enhancement-accent)" } : {}),
+              }}
+            >
               <strong>Add screenshots or images</strong>
-              <div style={{ marginTop: 4 }}>Upload files or paste from your clipboard. PNG, JPEG, GIF, or WebP; up to 4 images, 5 MiB each and 15 MiB total.</div>
+              <div style={{ marginTop: 4 }}>Upload, paste, or drop images here. PNG, JPEG, GIF, or WebP; up to 4 images, 5 MiB each and 15 MiB total.</div>
               <label style={{ display: "inline-block", marginTop: 10, cursor: "pointer", color: "var(--handrail-enhancement-accent)", fontWeight: 700 }}>
                 Choose images
                 <input aria-label="Choose enhancement images" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange={onFiles} style={{ display: "none" }} />
