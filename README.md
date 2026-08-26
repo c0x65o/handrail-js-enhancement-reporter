@@ -78,6 +78,16 @@ export function AccountMenu() {
 
 The dialog supports file upload and direct image paste from the clipboard. Accepted formats are PNG, JPEG, GIF, and WebP, with a maximum of 4 images, 5 MiB per image, and 15 MiB total. Both the browser and Handrail validate image signatures and limits.
 
+Set `reporterEmail` to the authenticated account email to prefill the packaged
+dialog's unchecked **Email me when this is fixed or deployed** control. The
+browser submits the enhancement first and then stores report-scoped consent on
+the same-origin `/requests/:requestId/subscription` route. The email is not
+included in the enhancement payload, a subscription failure is returned as a
+separate warning, and every update includes an unsubscribe link. Set
+`notificationsEnabled: false` to hide the control. Existing integrations need
+no migration because both settings and the submission `notification` field are
+optional.
+
 When an action is configured as **Ask**, the dialog renders its checkbox. A staging or production checkbox is enabled only when the Work Request will start. **Always** actions do not require a customer checkbox; **Pending** Work Request policy keeps delivery unavailable.
 
 Every authenticated Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin policy route before rendering navigation. Users with an explicit Enhancement Automation User or Full Access tracking assignment receive the **My requests** tab; unassigned users see only the submission form, without an access warning. The tab lists only requests owned by the current authenticated principal, and returned attachment URLs pass through the same principal-scoped route.
@@ -100,6 +110,10 @@ await reporter.submit({
   title: "Add a saved filter view",
   description: "Let me save the current filters and share the view with my team.",
   images: [{ data: file, filename: file.name, source: "upload" }],
+  notification: {
+    email: currentUser.email,
+    notifyOnResolution: true,
+  },
 });
 
 const badgePage = await reporter.list({ limit: 1, visibility: "active" });

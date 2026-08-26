@@ -24,6 +24,8 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   const client = {
     enabled: true,
     endpoint: "/api/handrail-enhancements",
+    reporterEmail: "reporter@example.com",
+    notificationsEnabled: true,
     discover: async () => ({ enhancement_reporting: { enabled: true, user_enabled: false, access_level: null, policy: { cells: { run_work_request: "ask", deploy_staging: "ask", deploy_production: "never" } } } }),
     submit: async (input) => {
       submissions.push(input);
@@ -36,6 +38,10 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
           linked_work_request: { id: "wr-1" },
         },
         replayed: false,
+        notification_subscription: input.notification
+          ? { active: true, created: true, recipient_hint: "r***@example.com", subscribed_at: "2026-08-25T12:00:00.000Z" }
+          : undefined,
+        notification_warning: null,
       };
     },
     list: async () => ({
@@ -66,6 +72,13 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
 
   await act(async () => renderer.root.findByProps({ "aria-label": "Start work on this request" }).props.onChange({ target: { checked: true } }));
   await act(async () => renderer.root.findByProps({ "aria-label": "Deploy to staging" }).props.onChange({ target: { checked: true } }));
+  const notificationCheckbox = renderer.root.find((node) =>
+    node.type === "input"
+    && node.props.type === "checkbox"
+    && !node.props["aria-label"]);
+  assert.equal(notificationCheckbox.props.checked, false);
+  await act(async () => notificationCheckbox.props.onChange({ target: { checked: true } }));
+  assert.equal(renderer.root.findByProps({ type: "email" }).props.value, "reporter@example.com");
 
   let prevented = 0;
   await act(async () => {
@@ -97,6 +110,14 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   assert.equal(submissions[0].images[0].filename, "clipboard.png");
   assert.equal(submissions[0].images[0].source, "clipboard");
   assert.deepEqual(submissions[0].automationRequests, { run_work_request: true, deploy_staging: true, deploy_production: false });
+  assert.deepEqual(submissions[0].notification, {
+    email: "reporter@example.com",
+    notifyOnResolution: true,
+  });
+  assert.match(
+    renderer.root.findByProps({ role: "status" }).children.join(""),
+    /Email updates are enabled/u,
+  );
   await act(async () => renderer.unmount());
 });
 

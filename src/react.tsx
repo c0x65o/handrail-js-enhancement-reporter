@@ -122,6 +122,8 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
   const [tab, setTab] = useState<"new" | "history">("new");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [notifyOnResolution, setNotifyOnResolution] = useState(false);
+  const [notificationEmail, setNotificationEmail] = useState(client.reporterEmail || "");
   const [images, setImages] = useState<SelectedImage[]>([]);
   const [history, setHistory] = useState<readonly EnhancementRequestRecord[]>([]);
   const [historyHasMore, setHistoryHasMore] = useState(false);
@@ -134,6 +136,7 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<EnhancementRequestRecord | null>(null);
+  const [notificationNotice, setNotificationNotice] = useState<string | null>(null);
   const previewUrls = useRef(new Set<string>());
   const pageSize = Math.max(1, Math.min(50, Math.floor(historyPageSize) || 10));
 
@@ -152,6 +155,9 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
     setHistoryTotal(0);
     setPolicy(PENDING_POLICY);
     setAutomationRequests({ run_work_request: false, deploy_staging: false, deploy_production: false });
+    setNotifyOnResolution(false);
+    setNotificationEmail(client.reporterEmail || "");
+    setNotificationNotice(null);
     void client.discover().then((discovery) => {
       if (cancelled) return;
       setHistoryAvailable(discovery?.enhancement_reporting?.user_enabled === true);
@@ -227,13 +233,29 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
     setSubmitting(true);
     setError(null);
     try {
-      const result = await client.submit({ title, description, images: images.map((image) => image.input), context: { appVersion }, automationRequests });
+      const result = await client.submit({
+        title,
+        description,
+        images: images.map((image) => image.input),
+        context: { appVersion },
+        automationRequests,
+        ...(notifyOnResolution
+          ? { notification: { email: notificationEmail, notifyOnResolution: true } }
+          : {}),
+      });
       setSubmitted(result.request);
+      setNotificationNotice(
+        result.notification_warning
+          || (notifyOnResolution && result.notification_subscription?.active === true
+            ? " Email updates are enabled for this request."
+            : null),
+      );
       setTitle("");
       setDescription("");
       for (const image of images) if (image.preview) { URL.revokeObjectURL(image.preview); previewUrls.current.delete(image.preview); }
       setImages([]);
       setAutomationRequests({ run_work_request: false, deploy_staging: false, deploy_production: false });
+      setNotifyOnResolution(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not submit the enhancement request.");
     } finally { setSubmitting(false); }
@@ -257,7 +279,7 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
           <button type="button" style={{ ...styles.tab, background: tab === "history" ? "#fff" : "transparent", color: "#253044" }} onClick={() => setTab("history")}>My requests</button>
         </div>}
         {error && <div role="alert" style={styles.error}>{error}</div>}
-        {submitted && tab === "new" && <div role="status" style={styles.success}>Submitted as pending Work Request <strong>{submitted.linked_work_request?.id || submitted.id}</strong>.</div>}
+        {submitted && tab === "new" && <div role="status" style={styles.success}>Submitted as pending Work Request <strong>{submitted.linked_work_request?.id || submitted.id}</strong>.{notificationNotice}</div>}
         {tab === "new" ? <form onSubmit={submit}>
           <label style={styles.label}>Short title<input style={styles.input} maxLength={500} required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What should be improved?" /></label>
           <label style={styles.label}>Details<textarea style={{ ...styles.input, minHeight: 130, resize: "vertical" }} maxLength={20_000} required value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the outcome you want. You can paste screenshots here." /></label>
@@ -270,6 +292,14 @@ export function EnhancementReporterDialog({ open, onClose, client: explicitClien
               <button type="button" aria-label={`Remove ${image.name}`} onClick={() => removeImage(image.id)} style={{ position: "absolute", top: 4, right: 4, width: 23, height: 23, padding: 0, border: 0, borderRadius: 12, cursor: "pointer", background: "rgba(15,23,42,.78)", color: "#fff" }}>×</button>
             </div>)}</div>}
           </div>
+          {client.notificationsEnabled === true && <fieldset style={{ margin: "16px 0 0", padding: 14, border: "1px solid #d7dee7", borderRadius: 11 }}>
+            <legend style={{ padding: "0 5px", color: "#344054", fontSize: 12, fontWeight: 700 }}>Updates</legend>
+            <label style={{ display: "flex", gap: 9, alignItems: "flex-start", color: "#344054", fontSize: 13, cursor: "pointer" }}>
+              <input type="checkbox" checked={notifyOnResolution} onChange={(event) => setNotifyOnResolution(event.target.checked)} />
+              <span><strong>Email me when this is fixed or deployed</strong><span style={{ display: "block", marginTop: 2, color: "#697586", fontSize: 11 }}>Only updates for this enhancement. Every email includes an unsubscribe link.</span></span>
+            </label>
+            {notifyOnResolution && <label style={{ ...styles.label, margin: "12px 0 0" }}>Email address<input style={styles.input} type="email" autoComplete="email" maxLength={254} required value={notificationEmail} onChange={(event) => setNotificationEmail(event.target.value)} /></label>}
+          </fieldset>}
           {hasAskOptions && <fieldset style={{ margin: "16px 0 0", padding: 14, border: "1px solid #d7dee7", borderRadius: 11 }}>
             <legend style={{ padding: "0 5px", color: "#344054", fontSize: 12, fontWeight: 700 }}>Optional automation</legend>
             {policy.run_work_request === "ask" && <label style={{ display: "flex", gap: 9, alignItems: "flex-start", color: "#344054", fontSize: 13, cursor: "pointer" }}>
@@ -342,6 +372,9 @@ export type {
   EnhancementReporterConfig,
   EnhancementReporterDiscovery,
   EnhancementRequestRecord,
+  EnhancementNotificationPreference,
+  EnhancementNotificationSubscription,
+  EnhancementSubmissionResult,
   EnhancementRestoreResult,
 } from "./reporter";
 export const REACT_SDK_IDENTITY = reporterIdentity("react");

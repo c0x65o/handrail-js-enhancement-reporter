@@ -44,6 +44,86 @@ test("browser submissions are same-origin policy requests with uploaded and past
   assert.equal("token" in payload, false);
 });
 
+test("notification opt-in follows an accepted enhancement as a separate same-origin request", async () => {
+  const calls = [];
+  const reporter = createEnhancementReporter({
+    endpoint: "/api/handrail-enhancements",
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return String(url).includes("/subscription")
+        ? new Response(JSON.stringify({
+            notification_subscription: {
+              active: true,
+              created: true,
+              recipient_hint: "r***@example.com",
+              subscribed_at: "2026-08-25T12:00:00.000Z",
+            },
+          }), { status: 201 })
+        : new Response(JSON.stringify({
+            request: {
+              id: "bridge-notify-1",
+              title: "Saved views",
+              status: "needs_attention",
+              terminal: false,
+            },
+            replayed: false,
+          }), { status: 201 });
+    },
+  });
+  const result = await reporter.submit({
+    title: "Saved views",
+    description: "Let me save these filters.",
+    notification: {
+      email: " Reporter@Example.COM ",
+      notifyOnResolution: true,
+    },
+  });
+
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, "/api/handrail-enhancements");
+  assert.equal(
+    calls[1].url,
+    "/api/handrail-enhancements/requests/bridge-notify-1/subscription",
+  );
+  assert.equal(JSON.parse(calls[0].init.body).reporter_notification, undefined);
+  assert.deepEqual(JSON.parse(calls[1].init.body), {
+    reporter_notification: {
+      email: "reporter@example.com",
+      notify_on_resolution: true,
+      consent_version: "v1",
+    },
+  });
+  assert.equal(result.notification_subscription.active, true);
+  assert.equal(result.notification_warning, null);
+});
+
+test("notification failure does not turn an accepted enhancement into a failure", async () => {
+  const reporter = createEnhancementReporter({
+    fetch: async (url) => String(url).includes("/subscription")
+      ? new Response("unavailable", { status: 503 })
+      : new Response(JSON.stringify({
+          request: {
+            id: "bridge-notify-2",
+            title: "Saved views",
+            status: "needs_attention",
+            terminal: false,
+          },
+          replayed: false,
+        }), { status: 201 }),
+  });
+  const result = await reporter.submit({
+    title: "Saved views",
+    description: "Let me save these filters.",
+    notification: {
+      email: "reporter@example.com",
+      notifyOnResolution: true,
+    },
+  });
+  assert.equal(result.request.id, "bridge-notify-2");
+  assert.equal(result.notification_subscription, null);
+  assert.match(result.notification_warning, /enhancement was sent/u);
+});
+
 test("image normalization validates types, signatures, and count", async () => {
   const normalized = await normalizeEnhancementImages([{ data: png.buffer, mimeType: "image/png", source: "clipboard" }]);
   assert.equal(normalized[0].size_bytes, png.byteLength);

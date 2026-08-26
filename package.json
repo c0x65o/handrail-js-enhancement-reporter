@@ -1,6 +1,6 @@
 {
   "name": "@handrail/enhancement-reporter",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Authenticated web enhancement request UI and same-origin Handrail bridge integration",
   "license": "UNLICENSED",
   "type": "module",

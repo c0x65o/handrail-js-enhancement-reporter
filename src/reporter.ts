@@ -44,6 +44,28 @@ export interface EnhancementRequestInput {
     readonly deploy_staging?: boolean;
     readonly deploy_production?: boolean;
   };
+  /** Explicit report-scoped consent for Fixed and Deployed email updates. */
+  readonly notification?: EnhancementNotificationPreference;
+}
+
+export interface EnhancementNotificationPreference {
+  readonly email: string;
+  readonly notifyOnResolution: true;
+  readonly consentVersion?: "v1" | string;
+}
+
+export interface EnhancementNotificationSubscription {
+  readonly active: boolean;
+  readonly created: boolean;
+  readonly recipient_hint: string | null;
+  readonly subscribed_at: string | null;
+}
+
+export interface EnhancementSubmissionResult {
+  readonly request: EnhancementRequestRecord;
+  readonly replayed: boolean;
+  readonly notification_subscription?: EnhancementNotificationSubscription | null;
+  readonly notification_warning?: string | null;
 }
 
 export interface EnhancementReporterConfig {
@@ -52,6 +74,10 @@ export interface EnhancementReporterConfig {
   readonly enabled?: boolean;
   readonly appVersion?: string;
   readonly conversationId?: string;
+  /** Prefill the opt-in address; the reporter never enables updates by default. */
+  readonly reporterEmail?: string;
+  /** Set false to hide notification opt-in controls in the packaged dialog. */
+  readonly notificationsEnabled?: boolean;
   readonly fetch?: typeof fetch;
 }
 
@@ -390,8 +416,11 @@ async function responseJson(response: Response): Promise<any> {
 export interface EnhancementReporterClient {
   readonly enabled: boolean;
   readonly endpoint: string;
+  readonly reporterEmail?: string;
+  readonly notificationsEnabled?: boolean;
   discover(): Promise<EnhancementReporterDiscovery>;
-  submit(input: EnhancementRequestInput): Promise<{ readonly request: EnhancementRequestRecord; readonly replayed: boolean }>;
+  submit(input: EnhancementRequestInput): Promise<EnhancementSubmissionResult>;
+  subscribeToUpdates(requestId: string, preference: EnhancementNotificationPreference): Promise<EnhancementNotificationSubscription>;
   list(options?: EnhancementHistoryListOptions): Promise<EnhancementRequestPage>;
   lookup(requestId: string): Promise<EnhancementRequestRecord>;
   releaseStatus(requestId: string): Promise<any>;
@@ -406,6 +435,8 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
   const endpoint = endpointPath(config.endpoint);
   const fetchImpl = config.fetch || globalThis.fetch;
   const enabled = config.enabled !== false;
+  const reporterEmail = clean(config.reporterEmail, 254).toLowerCase();
+  const notificationsEnabled = config.notificationsEnabled !== false;
   const defaultConversationId = clean(config.conversationId, 512) || randomId();
   if (enabled && typeof fetchImpl !== "function") throw new EnhancementReporterError("invalid_configuration", "A fetch implementation is required.");
 
@@ -418,9 +449,43 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
     }));
   };
 
+  const subscribeToUpdates = async (
+    requestId: string,
+    preference: EnhancementNotificationPreference,
+  ): Promise<EnhancementNotificationSubscription> => {
+    const id = clean(requestId, 160);
+    const email = clean(preference?.email, 254).toLowerCase();
+    if (!id || preference?.notifyOnResolution !== true || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email)) {
+      throw new EnhancementReporterError("invalid_notification", "A valid notification preference is required.");
+    }
+    const result = await request(`/requests/${encodeURIComponent(id)}/subscription`, {
+      method: "POST",
+      body: JSON.stringify({ reporter_notification: {
+        email,
+        notify_on_resolution: true,
+        consent_version: clean(preference.consentVersion, 40) || "v1",
+      } }),
+    });
+    const subscription = result?.notification_subscription;
+    if (!subscription || subscription.active !== true) {
+      throw new EnhancementReporterError(
+        "subscription_rejected",
+        "Update notifications could not be enabled.",
+      );
+    }
+    return Object.freeze({
+      active: true,
+      created: subscription.created === true,
+      recipient_hint: clean(subscription.recipient_hint, 320) || null,
+      subscribed_at: clean(subscription.subscribed_at, 80) || null,
+    });
+  };
+
   return Object.freeze({
     enabled,
     endpoint,
+    reporterEmail,
+    notificationsEnabled,
     discover: () => request("/policy"),
     async submit(input: EnhancementRequestInput) {
       const title = clean(input.title, 500);
@@ -429,7 +494,7 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
       const images = await normalizeEnhancementImages(input.images);
       const route = clean(input.context?.route, 2_000) || (typeof location !== "undefined" ? `${location.pathname}${location.search}` : "");
       const viewport = clean(input.context?.viewport, 80) || (typeof window !== "undefined" ? `${window.innerWidth}x${window.innerHeight}` : "");
-      return request("", {
+      const result = await request("", {
         method: "POST",
         body: JSON.stringify({
           idempotency_key: clean(input.idempotencyKey, 255) || randomId(),
@@ -452,7 +517,27 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
           attachments: images.map(({ mime_type: _mime, size_bytes: _size, ...image }) => image),
         }),
       });
+      if (input.notification?.notifyOnResolution !== true) return result;
+      const requestId = clean(result?.request?.id, 160);
+      if (!requestId) {
+        return {
+          ...result,
+          notification_subscription: null,
+          notification_warning: "The enhancement was sent, but update notifications could not be enabled.",
+        };
+      }
+      try {
+        const subscription = await subscribeToUpdates(requestId, input.notification);
+        return { ...result, notification_subscription: subscription, notification_warning: null };
+      } catch {
+        return {
+          ...result,
+          notification_subscription: null,
+          notification_warning: "The enhancement was sent, but update notifications could not be enabled.",
+        };
+      }
     },
+    subscribeToUpdates,
     list(options: EnhancementHistoryListOptions = {}) {
       const { limit = 20, offset = 0, search, statusGroup, sort, visibility } = options;
       const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });

@@ -24,6 +24,18 @@ function setup(session = "session-1") {
     restore: async ({ request_id }) => { calls.push(["restore", { request_id }]); return { contract_version: "v1", request_id, dismissed: false, dismissed_at: null, underlying_request_preserved: true }; },
     dismissSucceeded: async () => { calls.push(["dismissSucceeded"]); return { contract_version: "v1", dismissed_count: 2, underlying_requests_preserved: true }; },
     cancel: async ({ request_id }) => ({ id: request_id, status: "cancelled", terminal: true }),
+    subscribe: async ({ request_id, reporter_notification }) => {
+      calls.push(["subscribe", { request_id, reporter_notification }]);
+      return {
+        contract_version: "v1",
+        notification_subscription: {
+          active: true,
+          created: true,
+          recipient_hint: "r***@example.com",
+          subscribed_at: "2026-08-25T12:00:00.000Z",
+        },
+      };
+    },
     submit: async (input) => { calls.push(["submit", input]); return { request: { id: "bridge-1", status: "needs_attention", terminal: false, linked_work_request: { id: "wr-1" } }, replayed: false }; },
     downloadAttachment: async () => ({ data: Uint8Array.from([1, 2, 3]), filename: "screen.png", mime_type: "image/png", size_bytes: 3 }),
   };
@@ -108,6 +120,33 @@ test("handler overwrites raw execution fields and forwards only enhancement chec
   assert.equal(payload.auto_deploy_env, null);
   assert.deepEqual(payload.automation_requests, { run_work_request: true, deploy_staging: true, deploy_production: false });
   assert.equal(payload.reporter_sdk.package, "@handrail/enhancement-reporter");
+});
+
+test("handler validates and forwards report-scoped notification consent", async () => {
+  const { handler, calls } = setup();
+  const response = await handler(new Request(
+    "https://app.example/api/handrail-enhancements/requests/bridge-1/subscription",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "https://app.example" },
+      body: JSON.stringify({
+        reporter_notification: {
+          email: " Reporter@Example.COM ",
+          notify_on_resolution: true,
+        },
+      }),
+    },
+  ));
+  assert.equal(response.status, 201);
+  assert.deepEqual(calls[0], ["subscribe", {
+    request_id: "bridge-1",
+    reporter_notification: {
+      email: "reporter@example.com",
+      notify_on_resolution: true,
+      consent_version: "v1",
+    },
+  }]);
+  assert.equal((await response.json()).notification_subscription.active, true);
 });
 
 test("history controls and image downloads remain on the authenticated same-origin route", async () => {

@@ -4,6 +4,7 @@ import { MAX_ENHANCEMENT_IMAGES } from "./reporter";
 export interface EnhancementBridgeClient {
   discover(): Promise<any>;
   submit(input: Record<string, unknown>): Promise<any>;
+  subscribe?(input: { request_id: string; reporter_notification: Record<string, unknown> }): Promise<any>;
   list(input?: Record<string, unknown>): Promise<any>;
   lookup(input: { request_id: string }): Promise<any>;
   releaseStatus(input: { request_id: string }): Promise<any>;
@@ -191,6 +192,13 @@ function defaultBridgeClient<RequestType extends Request>(
       payload: input,
       idempotencyKey: clean(input.idempotency_key, 255) || undefined,
     }),
+    subscribe: ({ request_id, reporter_notification }: {
+      request_id: string;
+      reporter_notification: Record<string, unknown>;
+    }) => request(
+      `requests/${encodeURIComponent(request_id)}/subscription`,
+      { method: "POST", payload: { reporter_notification } },
+    ),
     list: (input: Record<string, unknown> = {}) => {
       const query = new URLSearchParams();
       if (input.submission_kind) query.set("submission_kind", String(input.submission_kind));
@@ -360,6 +368,25 @@ export function createSameOriginEnhancementReporterHandler<RequestType extends R
         if (request.method === "GET" && parts.length === 2) return json(200, await client.lookup({ request_id: requestId }));
         if (request.method === "GET" && parts.length === 3 && parts[2] === "release-status") return json(200, await client.releaseStatus({ request_id: requestId }));
         if (request.method === "POST" && parts.length === 3 && parts[2] === "dismiss") return json(200, await client.dismiss({ request_id: requestId }));
+        if (request.method === "POST" && parts.length === 3 && parts[2] === "subscription") {
+          if (typeof client.subscribe !== "function") {
+            return json(501, { error: "Update notifications are not supported by this transport.", code: "enhancement_notifications_unsupported" });
+          }
+          const body = await requestBody(request);
+          const source = body?.reporter_notification;
+          const email = clean(source?.email, 254).toLowerCase();
+          if (source?.notify_on_resolution !== true || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email)) {
+            return json(400, { error: "A valid notification preference is required.", code: "enhancement_notification_invalid" });
+          }
+          return json(201, await client.subscribe({
+            request_id: requestId,
+            reporter_notification: {
+              email,
+              notify_on_resolution: true,
+              consent_version: clean(source?.consent_version, 40) || "v1",
+            },
+          }));
+        }
         if (request.method === "DELETE" && parts.length === 3 && parts[2] === "dismiss") return json(200, await client.restore({ request_id: requestId }));
         if (request.method === "GET" && parts.length === 4 && parts[2] === "attachments") {
           const attachmentId = decodePathPart(parts[3]);
