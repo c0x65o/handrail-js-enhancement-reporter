@@ -54,6 +54,10 @@ test("the packaged UI is opt-in and the launcher mounts a separate themed dialog
   const overlay = renderer.root.findByProps({ "data-handrail-enhancement-reporter": "overlay" });
   assert.equal(overlay.props["data-theme"], "auto");
   assert.equal(overlay.props.style.colorScheme, "inherit");
+  assert.equal(overlay.props.style["--handrail-enhancement-accent"], "light-dark(#2563eb, #78a9ff)");
+  assert.equal(overlay.props.style["--handrail-enhancement-radius"], "16px");
+  assert.equal(overlay.props.style["--handrail-enhancement-font-family"], '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif');
+  assert.equal(overlay.props.style.backdropFilter, "blur(3px)");
   await act(async () => renderer.root.findByProps({ "aria-label": "Close enhancement reporter" }).props.onClick());
   assert.equal(renderer.root.findAllByProps({ role: "dialog" }).length, 0);
   await act(async () => renderer.unmount());
@@ -103,7 +107,8 @@ test("appearance, responsive dialog semantics, focus containment, Escape, overla
     assert.equal(dialog.props["aria-modal"], "true");
     assert.ok(dialog.props["aria-labelledby"]);
     assert.ok(dialog.props["aria-describedby"]);
-    assert.equal(dialog.props.style.width, "min(700px, calc(100vw - 24px))");
+    assert.equal(dialog.props.style.width, "min(760px, calc(100vw - 32px))");
+    assert.equal(dialog.props.style.height, "min(840px, calc(100dvh - 32px))");
     assert.equal(fakeDocument.activeElement, first);
     let prevented = false;
     fakeDocument.activeElement = last;

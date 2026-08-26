@@ -51,8 +51,9 @@ export interface EnhancementReporterThemeTokens {
 }
 
 export interface EnhancementReporterAppearance {
-  /** Defaults to auto, inheriting the host color scheme and typography. */
+  /** Defaults to auto, following the host color scheme with polished SDK defaults. */
   readonly themeMode?: EnhancementReporterThemeMode;
+  /** Overrides individual packaged-UI design tokens without changing behavior. */
   readonly tokens?: Partial<EnhancementReporterThemeTokens>;
   /** Applied to the dialog element. */
   readonly className?: string;
@@ -102,54 +103,54 @@ const PENDING_POLICY: EnhancementPolicyCells = Object.freeze({
 });
 
 const LIGHT_TOKENS: EnhancementReporterThemeTokens = Object.freeze({
-  accent: "#175cd3",
+  accent: "#2563eb",
   accentText: "#ffffff",
   surface: "#ffffff",
-  surfaceMuted: "#f6f8fb",
-  text: "#17202e",
-  mutedText: "#596579",
-  border: "#d5dbe5",
-  overlay: "rgba(15, 23, 42, 0.55)",
-  dangerSurface: "#fff0f0",
-  dangerText: "#a51d1d",
-  successSurface: "#eaf8f0",
-  successText: "#17623b",
-  radius: "12px",
-  fontFamily: "inherit",
+  surfaceMuted: "#f7f9fc",
+  text: "#172033",
+  mutedText: "#667085",
+  border: "#dbe2ec",
+  overlay: "rgba(15, 23, 42, 0.62)",
+  dangerSurface: "#fff1f0",
+  dangerText: "#b42318",
+  successSurface: "#ecfdf3",
+  successText: "#027a48",
+  radius: "16px",
+  fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
 });
 
 const DARK_TOKENS: EnhancementReporterThemeTokens = Object.freeze({
   accent: "#78a9ff",
   accentText: "#071426",
-  surface: "#161b24",
-  surfaceMuted: "#202733",
-  text: "#f2f4f8",
-  mutedText: "#b5bdca",
-  border: "#3a4352",
-  overlay: "rgba(0, 0, 0, 0.72)",
+  surface: "#151a23",
+  surfaceMuted: "#1e2633",
+  text: "#f5f7fa",
+  mutedText: "#aeb8c8",
+  border: "#394455",
+  overlay: "rgba(2, 6, 23, 0.76)",
   dangerSurface: "#3a1d23",
   dangerText: "#ffb4b8",
   successSurface: "#173326",
   successText: "#95ddb7",
-  radius: "12px",
-  fontFamily: "inherit",
+  radius: "16px",
+  fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
 });
 
 const AUTO_TOKENS: EnhancementReporterThemeTokens = Object.freeze({
-  accent: "LinkText",
-  accentText: "Canvas",
-  surface: "Canvas",
-  surfaceMuted: "color-mix(in srgb, CanvasText 6%, Canvas)",
-  text: "CanvasText",
-  mutedText: "GrayText",
-  border: "color-mix(in srgb, CanvasText 22%, Canvas)",
-  overlay: "rgba(0, 0, 0, 0.55)",
-  dangerSurface: "color-mix(in srgb, #d92d20 14%, Canvas)",
-  dangerText: "#d92d20",
-  successSurface: "color-mix(in srgb, #168a50 14%, Canvas)",
-  successText: "#168a50",
-  radius: "12px",
-  fontFamily: "inherit",
+  accent: "light-dark(#2563eb, #78a9ff)",
+  accentText: "light-dark(#ffffff, #071426)",
+  surface: "light-dark(#ffffff, #151a23)",
+  surfaceMuted: "light-dark(#f7f9fc, #1e2633)",
+  text: "light-dark(#172033, #f5f7fa)",
+  mutedText: "light-dark(#667085, #aeb8c8)",
+  border: "light-dark(#dbe2ec, #394455)",
+  overlay: "rgba(2, 6, 23, 0.66)",
+  dangerSurface: "light-dark(#fff1f0, #3a1d23)",
+  dangerText: "light-dark(#b42318, #ffb4b8)",
+  successSurface: "light-dark(#ecfdf3, #173326)",
+  successText: "light-dark(#027a48, #95ddb7)",
+  radius: "16px",
+  fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
 });
 
 const focusableSelector = [
@@ -227,22 +228,26 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: 12,
+    padding: 16,
     background: "var(--handrail-enhancement-overlay)",
+    backdropFilter: "blur(3px)",
   },
   dialog: {
     display: "flex",
     flexDirection: "column",
-    width: "min(700px, calc(100vw - 24px))",
-    height: "min(720px, calc(100dvh - 24px))",
-    maxHeight: "calc(100vh - 24px)",
+    width: "min(760px, calc(100vw - 32px))",
+    height: "min(840px, calc(100dvh - 32px))",
+    maxHeight: "calc(100vh - 32px)",
     overflow: "hidden",
     border: "1px solid var(--handrail-enhancement-border)",
     borderRadius: "var(--handrail-enhancement-radius)",
     background: "var(--handrail-enhancement-surface)",
     color: "var(--handrail-enhancement-text)",
-    boxShadow: "0 24px 70px rgba(0, 0, 0, 0.3)",
+    boxShadow: "0 30px 90px rgba(0, 0, 0, 0.34)",
     fontFamily: "var(--handrail-enhancement-font-family)",
+    fontSize: 14,
+    lineHeight: 1.45,
+    isolation: "isolate",
   },
   header: {
     display: "flex",
@@ -250,32 +255,41 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 16,
-    padding: "18px 20px 14px",
+    padding: "22px 24px 18px",
     borderBottom: "1px solid var(--handrail-enhancement-border)",
   },
-  content: { flex: 1, minHeight: 0, overflow: "auto", padding: 20 },
+  content: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "auto",
+    padding: 24,
+    background: "var(--handrail-enhancement-surface)",
+  },
   tabs: {
     display: "flex",
-    gap: 6,
-    padding: 4,
-    marginBottom: 18,
-    borderRadius: 10,
+    gap: 8,
+    padding: 5,
+    marginBottom: 24,
+    border: "1px solid var(--handrail-enhancement-border)",
+    borderRadius: 14,
     background: "var(--handrail-enhancement-surface-muted)",
   },
   tab: {
     flex: 1,
     border: "1px solid transparent",
-    borderRadius: 8,
-    padding: "8px 10px",
+    borderRadius: 10,
+    padding: "11px 16px",
     cursor: "pointer",
     color: "inherit",
     background: "transparent",
     font: "inherit",
     fontWeight: 700,
+    minHeight: 46,
   },
   activeTab: {
     borderColor: "var(--handrail-enhancement-border)",
     background: "var(--handrail-enhancement-surface)",
+    boxShadow: "0 3px 10px rgba(15, 23, 42, 0.08)",
   },
   label: {
     display: "grid",
@@ -289,11 +303,13 @@ const styles: Record<string, CSSProperties> = {
     width: "100%",
     boxSizing: "border-box",
     border: "1px solid var(--handrail-enhancement-border)",
-    borderRadius: 9,
-    padding: "10px 12px",
+    borderRadius: 11,
+    padding: "11px 14px",
     color: "inherit",
     background: "var(--handrail-enhancement-surface)",
     font: "inherit",
+    minHeight: 46,
+    outlineOffset: 2,
   },
   fieldset: {
     margin: "16px 0 0",
@@ -312,8 +328,8 @@ const styles: Record<string, CSSProperties> = {
   },
   drop: {
     border: "1px dashed var(--handrail-enhancement-border)",
-    borderRadius: 11,
-    padding: 14,
+    borderRadius: 12,
+    padding: 16,
     background: "var(--handrail-enhancement-surface-muted)",
     fontSize: 13,
     color: "var(--handrail-enhancement-muted-text)",
@@ -334,24 +350,42 @@ const styles: Record<string, CSSProperties> = {
   },
   button: {
     border: "1px solid transparent",
-    borderRadius: 9,
-    padding: "9px 14px",
+    borderRadius: 10,
+    padding: "10px 16px",
     cursor: "pointer",
     font: "inherit",
     fontWeight: 700,
+    minHeight: 42,
+    outlineOffset: 2,
   },
-  status: { marginBottom: 14, borderRadius: 9, padding: "10px 12px", fontSize: 13 },
+  status: { marginBottom: 14, borderRadius: 11, padding: "11px 14px", fontSize: 13 },
   historyControls: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-    gap: 8,
-    marginBottom: 12,
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
+    gap: 10,
+    marginBottom: 14,
   },
   historyItem: {
     display: "grid",
     gap: 6,
-    padding: "13px 0",
-    borderBottom: "1px solid var(--handrail-enhancement-border)",
+    marginBottom: 10,
+    padding: "14px 16px",
+    border: "1px solid var(--handrail-enhancement-border)",
+    borderRadius: 12,
+    background: "var(--handrail-enhancement-surface-muted)",
+  },
+  formActions: {
+    position: "sticky",
+    bottom: -24,
+    zIndex: 2,
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 9,
+    flexWrap: "wrap",
+    margin: "20px -24px -24px",
+    padding: "16px 24px",
+    borderTop: "1px solid var(--handrail-enhancement-border)",
+    background: "var(--handrail-enhancement-surface)",
   },
 };
 
@@ -905,13 +939,13 @@ export function EnhancementReporterDialog({
       onKeyDown={onDialogKeyDown}
     >
       <header style={styles.header}>
-        <div>
-          <h2 id={headingId} style={{ margin: 0, fontSize: 20 }}>{heading}</h2>
-          <div id={descriptionId} style={{ marginTop: 4, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <h2 id={headingId} style={{ margin: 0, fontSize: 24, lineHeight: 1.2, letterSpacing: "-0.02em" }}>{heading}</h2>
+          <div id={descriptionId} style={{ marginTop: 6, color: "var(--handrail-enhancement-muted-text)", fontSize: 13 }}>
             Requests are sent to your product team as pending work.
           </div>
         </div>
-        <button type="button" aria-label="Close enhancement reporter" onClick={onClose} style={{ ...buttonStyle("secondary"), padding: "5px 10px", fontSize: 20 }}>×</button>
+        <button type="button" aria-label="Close enhancement reporter" onClick={onClose} style={{ ...buttonStyle("secondary"), width: 44, minWidth: 44, height: 44, padding: 0, fontSize: 22, lineHeight: 1 }}>×</button>
       </header>
       <div style={styles.content}>
         {historyAvailable && <div role="tablist" aria-label="Enhancement reporter views" style={styles.tabs}>
@@ -998,7 +1032,7 @@ export function EnhancementReporterDialog({
               </label>}
             </fieldset>}
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 20 }}>
+            <div style={styles.formActions}>
               <button type="button" onClick={onClose} style={buttonStyle("secondary")}>Cancel</button>
               <button type="submit" disabled={submitting} style={{ ...buttonStyle("primary"), opacity: submitting ? 0.65 : 1 }}>{submitting ? "Submitting…" : "Submit enhancement"}</button>
             </div>
