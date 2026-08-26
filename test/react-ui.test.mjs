@@ -108,7 +108,7 @@ test("appearance, responsive dialog semantics, focus containment, Escape, overla
     assert.ok(dialog.props["aria-labelledby"]);
     assert.ok(dialog.props["aria-describedby"]);
     assert.equal(dialog.props.style.width, "min(760px, calc(100vw - 32px))");
-    assert.equal(dialog.props.style.height, "min(840px, calc(100dvh - 32px))");
+    assert.equal(dialog.props.style.height, "min(780px, calc(100dvh - 32px))");
     assert.equal(fakeDocument.activeElement, first);
     let prevented = false;
     fakeDocument.activeElement = last;
@@ -146,6 +146,52 @@ test("image validation rejects unsupported uploads before delegating to the clie
     target: { files: [{ type: "text/plain", name: "notes.txt", size: 4 }], value: "notes.txt" },
   }));
   assert.match(renderer.root.findByProps({ role: "alert" }).children.join(""), /PNG, JPEG, GIF, or WebP/);
+  await act(async () => renderer.unmount());
+});
+
+test("an in-flight submission cannot be dismissed accidentally", async () => {
+  let finishSubmission;
+  let closed = 0;
+  const sdk = client();
+  sdk.submit = () => new Promise((resolve) => {
+    finishSubmission = resolve;
+  });
+  let renderer;
+  await act(async () => {
+    renderer = create(createElement(EnhancementReporterDialog, {
+      open: true,
+      onClose: () => { closed += 1; },
+      client: sdk,
+    }));
+  });
+  await act(async () => {
+    renderer.root.findByProps({ placeholder: "What should be improved?" }).props.onChange({ target: { value: "Saved views" } });
+    renderer.root.findByProps({ placeholder: "Describe the outcome you want. You can paste screenshots here." }).props.onChange({ target: { value: "Keep my filters across sessions." } });
+  });
+
+  await act(async () => {
+    renderer.root.findByType("form").props.onSubmit({ preventDefault() {} });
+    await Promise.resolve();
+  });
+  const dialog = renderer.root.findByProps({ role: "dialog" });
+  const overlay = renderer.root.findByProps({ "data-handrail-enhancement-reporter": "overlay" });
+  const closeButton = renderer.root.findByProps({ "aria-label": "Close enhancement reporter" });
+  assert.equal(dialog.props["aria-busy"], true);
+  assert.equal(closeButton.props.disabled, true);
+  dialog.props.onKeyDown({ key: "Escape", preventDefault() {} });
+  overlay.props.onMouseDown({ target: overlay, currentTarget: overlay });
+  assert.equal(closed, 0);
+
+  await act(async () => {
+    finishSubmission({
+      request: { id: "enh-1", title: "Saved views", status: "pending", terminal: false },
+      replayed: false,
+    });
+    await Promise.resolve();
+  });
+  assert.equal(renderer.root.findByProps({ role: "dialog" }).props["aria-busy"], false);
+  await act(async () => renderer.root.findByProps({ "aria-label": "Close enhancement reporter" }).props.onClick());
+  assert.equal(closed, 1);
   await act(async () => renderer.unmount());
 });
 

@@ -236,7 +236,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     width: "min(760px, calc(100vw - 32px))",
-    height: "min(840px, calc(100dvh - 32px))",
+    height: "min(780px, calc(100dvh - 32px))",
     maxHeight: "calc(100vh - 32px)",
     overflow: "hidden",
     border: "1px solid var(--handrail-enhancement-border)",
@@ -398,6 +398,13 @@ function buttonStyle(kind: "primary" | "secondary"): CSSProperties {
   };
 }
 
+function displayLabel(value: string): string {
+  const normalized = value.replaceAll("_", " ").trim();
+  return normalized
+    ? `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`
+    : value;
+}
+
 function selectedFile(
   file: File,
   source: "upload" | "clipboard",
@@ -447,7 +454,7 @@ function HistoryRow({
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
       <strong>{request.title}</strong>
       <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>
-        {request.status.replaceAll("_", " ")}
+        {displayLabel(request.status)}
       </span>
     </div>
     <div style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>
@@ -836,6 +843,9 @@ export function EnhancementReporterDialog({
     || policy.deploy_production === "ask";
   const canNotify = client.notificationsEnabled !== false && notificationAvailable;
   const variables = appearanceVariables(appearance);
+  const closeDialog = () => {
+    if (!submitting) onClose();
+  };
 
   const selectTab = (next: DialogTab) => setTab(next);
   const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, current: DialogTab) => {
@@ -862,7 +872,7 @@ export function EnhancementReporterDialog({
   const onDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Escape") {
       event.preventDefault();
-      onClose();
+      closeDialog();
       return;
     }
     if (event.key !== "Tab") return;
@@ -896,13 +906,13 @@ export function EnhancementReporterDialog({
       {historyCapabilities?.search && <input aria-label="Search my requests" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Search my requests" style={styles.input} />}
       {Boolean(historyCapabilities?.status_groups.length) && <select aria-label="Enhancement status" value={historyStatus} onChange={(event) => setHistoryStatus(event.target.value as EnhancementHistoryStatusGroup | "")} style={styles.input}>
         <option value="">All statuses</option>
-        {historyCapabilities!.status_groups.map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
+        {historyCapabilities!.status_groups.map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}
       </select>}
       {Boolean(historyCapabilities?.visibilities.length) && <select aria-label="Enhancement visibility" value={historyVisibility} onChange={(event) => setHistoryVisibility(event.target.value as EnhancementHistoryVisibility)} style={styles.input}>
-        {historyCapabilities!.visibilities.map((visibility) => <option key={visibility} value={visibility}>{visibility}</option>)}
+        {historyCapabilities!.visibilities.map((visibility) => <option key={visibility} value={visibility}>{displayLabel(visibility)}</option>)}
       </select>}
       {Boolean(historyCapabilities?.sorts.length) && <select aria-label="Enhancement sort order" value={historySort} onChange={(event) => setHistorySort(event.target.value as EnhancementHistorySort)} style={styles.input}>
-        {historyCapabilities!.sorts.map((sort) => <option key={sort} value={sort}>{sort}</option>)}
+        {historyCapabilities!.sorts.map((sort) => <option key={sort} value={sort}>{displayLabel(sort)}</option>)}
       </select>}
     </div>}
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
@@ -923,7 +933,7 @@ export function EnhancementReporterDialog({
     data-theme={appearance?.themeMode || "auto"}
     style={{ ...styles.overlay, ...variables }}
     onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
+      if (event.target === event.currentTarget) closeDialog();
     }}
   >
     <section
@@ -933,6 +943,7 @@ export function EnhancementReporterDialog({
       aria-modal="true"
       aria-labelledby={headingId}
       aria-describedby={descriptionId}
+      aria-busy={submitting || discovering}
       tabIndex={-1}
       style={styles.dialog}
       onPaste={onPaste}
@@ -945,7 +956,7 @@ export function EnhancementReporterDialog({
             Requests are sent to your product team as pending work.
           </div>
         </div>
-        <button type="button" aria-label="Close enhancement reporter" onClick={onClose} style={{ ...buttonStyle("secondary"), width: 44, minWidth: 44, height: 44, padding: 0, fontSize: 22, lineHeight: 1 }}>×</button>
+        <button type="button" aria-label="Close enhancement reporter" disabled={submitting} onClick={closeDialog} style={{ ...buttonStyle("secondary"), width: 44, minWidth: 44, height: 44, padding: 0, fontSize: 22, lineHeight: 1, opacity: submitting ? 0.65 : 1 }}>×</button>
       </header>
       <div style={styles.content}>
         {historyAvailable && <div role="tablist" aria-label="Enhancement reporter views" style={styles.tabs}>
@@ -1033,7 +1044,7 @@ export function EnhancementReporterDialog({
             </fieldset>}
 
             <div style={styles.formActions}>
-              <button type="button" onClick={onClose} style={buttonStyle("secondary")}>Cancel</button>
+              <button type="button" disabled={submitting} onClick={closeDialog} style={buttonStyle("secondary")}>Cancel</button>
               <button type="submit" disabled={submitting} style={{ ...buttonStyle("primary"), opacity: submitting ? 0.65 : 1 }}>{submitting ? "Submitting…" : "Submit enhancement"}</button>
             </div>
           </form>
@@ -1052,7 +1063,7 @@ export function EnhancementReporterDialog({
           <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", marginTop: 16 }}>
             {historyHasMore && <button type="button" disabled={loadingHistory} onClick={() => void loadHistory(history.length)} style={buttonStyle("secondary")}>{loadingHistory ? "Loading…" : "Show more"}</button>}
             {historyTotal > 0 && <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{history.length} of {historyTotal}</span>}
-            {historySummary && <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{historySummary.succeeded} succeeded · {historySummary.in_progress} in progress · {historySummary.needs_attention} need attention</span>}
+            {historySummary && <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{historySummary.succeeded} succeeded · {historySummary.in_progress} in progress · {historySummary.needs_attention} needing attention</span>}
           </div>
         </div>}
       </div>
