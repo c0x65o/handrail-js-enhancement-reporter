@@ -970,7 +970,7 @@ export function EnhancementReporterDialog({
                 <span>
                   <strong>Email me when this is fixed</strong>
                   <span style={{ display: "block", marginTop: 2, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>
-                    We’ll send one email to {notificationRecipientHint || "your Known User email"} after the fix is available in the environment you’re using. It includes an unsubscribe link.
+                    We’ll send one email to {notificationRecipientHint || "your Known User email"} after the fix is available in the environment you’re using.
                   </span>
                 </span>
               </label>
