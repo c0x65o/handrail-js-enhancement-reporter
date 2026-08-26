@@ -1,7 +1,7 @@
 {
   "name": "@handrail/enhancement-reporter",
-  "version": "0.3.4",
-  "description": "Authenticated web enhancement request UI and same-origin Handrail bridge integration",
+  "version": "0.3.5",
+  "description": "Opt-in packaged and headless web enhancement reporting with a same-origin Handrail bridge",
   "license": "UNLICENSED",
   "type": "module",
   "sideEffects": false,
@@ -49,9 +49,10 @@
     "generate:release": "node ./scripts/generate-release.mjs",
     "build": "npm run generate:release && tsup",
     "typecheck": "npm run generate:release && tsc --noEmit -p tsconfig.json",
+    "test:contracts": "tsc -p tsconfig.contracts.json",
     "pretest": "npm run build",
     "test": "node --test test/*.test.mjs",
-    "check": "npm run build && npm run typecheck && node --test test/*.test.mjs && npm pack --dry-run",
+    "check": "npm run build && npm run typecheck && npm run test:contracts && node --test test/*.test.mjs && npm pack --dry-run",
     "prepare": "npm run build",
     "prepublishOnly": "npm run check"
   },

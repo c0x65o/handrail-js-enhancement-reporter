@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "types": ["react"]
+  },
+  "include": ["test/type-contracts.ts", "test/type-contracts.cts"]
+}

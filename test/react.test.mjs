@@ -66,7 +66,7 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   ));
   assert.equal(pasteTargets.length, 1, "paste should be handled at one dialog boundary");
   const dialog = renderer.root.findByProps({ role: "dialog" });
-  assert.equal(dialog.props.style.height, "min(620px, calc(100vh - 40px))");
+  assert.equal(dialog.props.style.height, "min(720px, calc(100dvh - 24px))");
   assert.equal(dialog.props.style.overflow, "hidden");
   assert.equal(dialog.findAll((node) => node.props.style?.overflow === "auto").length, 1);
   assert.equal(renderer.root.findAll((node) => node.children?.includes("My requests")).length, 0);
@@ -74,10 +74,9 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
 
   await act(async () => renderer.root.findByProps({ "aria-label": "Start work on this request" }).props.onChange({ target: { checked: true } }));
   await act(async () => renderer.root.findByProps({ "aria-label": "Deploy to staging" }).props.onChange({ target: { checked: true } }));
-  const notificationCheckbox = renderer.root.find((node) =>
-    node.type === "input"
-    && node.props.type === "checkbox"
-    && !node.props["aria-label"]);
+  const notificationCheckbox = renderer.root.findByProps({
+    "aria-label": "Email me when this enhancement is fixed or deployed",
+  });
   assert.equal(notificationCheckbox.props.checked, false);
   await act(async () => notificationCheckbox.props.onChange({ target: { checked: true } }));
   assert.equal(renderer.root.findAllByProps({ type: "email" }).length, 0);
@@ -116,7 +115,7 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
     notifyOnResolution: true,
   });
   assert.match(
-    renderer.root.findByProps({ role: "status" }).children.join(""),
+    renderer.root.findAllByProps({ role: "status" }).map((node) => node.children.join("")).join(" "),
     /Email updates are enabled/u,
   );
   await act(async () => renderer.unmount());

@@ -54,7 +54,21 @@ export const POST = handler;
 
 The handler rejects missing Known User sessions and cross-site requests. It forwards neither cookies nor application authorization headers. Keep the route behind your framework's normal CSRF/session protections as well.
 
-## React UI
+## Choose an integration path
+
+The SDK has two independent adoption paths:
+
+- **Packaged React UI:** mount `EnhancementReporterButton` or control
+  `EnhancementReporterDialog` yourself for a complete submission and owned
+  history experience.
+- **Custom/headless UI:** call the browser client directly, or use the React
+  provider and `useEnhancementReporter()` hook with your own components.
+
+The packaged UI is strictly opt-in. Importing this package, mounting only the
+provider, or upgrading an existing integration never inserts a launcher or
+opens a dialog. Bugs remain a separate SDK, API, and presentation surface.
+
+## Packaged React UI
 
 ```tsx
 import {
@@ -70,11 +84,55 @@ export function AccountMenu() {
         appVersion: import.meta.env.VITE_APP_VERSION,
       }}
     >
-      <EnhancementReporterButton label="Suggest an enhancement" />
+      <EnhancementReporterButton
+        label="Suggest an enhancement"
+        appearance={{ themeMode: "auto" }}
+      />
     </EnhancementReporterProvider>
   );
 }
 ```
+
+`EnhancementReporterButton` is the launcher; `EnhancementReporterDialog` is
+also exported separately for an app-owned launcher or menu. Both delegate
+discovery, submission, subscriptions, and history mutations to the same client
+provided by `EnhancementReporterProvider` (or to an explicit `client` prop).
+
+### Appearance and accessibility
+
+`appearance.themeMode` accepts `"auto"` (the default), `"light"`, or `"dark"`.
+Auto mode inherits the host's color scheme and typography. Override individual
+tokens without replacing the UI:
+
+```tsx
+<EnhancementReporterButton
+  appearance={{
+    themeMode: "dark",
+    tokens: {
+      accent: "#7c3aed",
+      accentText: "#ffffff",
+      radius: "8px",
+      fontFamily: "var(--app-font)",
+    },
+    style: { zIndex: 1000 },
+  }}
+/>
+```
+
+Available tokens are `accent`, `accentText`, `surface`, `surfaceMuted`, `text`,
+`mutedText`, `border`, `overlay`, `dangerSurface`, `dangerText`,
+`successSurface`, `successText`, `radius`, and `fontFamily`. They map to scoped
+`--handrail-enhancement-*` CSS custom properties. `appearance.className`
+targets the dialog and `appearance.style` targets the overlay, so an
+application can add narrowly scoped CSS overrides. Launcher `className` and
+`style` props remain separate.
+
+The dialog is viewport-bounded and scrolls internally on smaller screens. It
+has labeled dialog and tab semantics, traps keyboard focus while open, supports
+arrow/Home/End tab navigation, closes with Escape or an overlay click, and
+restores focus to the prior control. Loading, validation, failure, and success
+states are exposed as text and live-region announcements; status meaning does
+not depend on color alone.
 
 The dialog supports file upload and direct image paste from the clipboard. Accepted formats are PNG, JPEG, GIF, and WebP, with a maximum of 4 images, 5 MiB per image, and 15 MiB total. Both the browser and Handrail validate image signatures and limits.
 
@@ -94,11 +152,21 @@ When an action is configured as **Ask**, the dialog renders its checkbox. A stag
 
 Every authenticated Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin policy route before rendering navigation. Users with an explicit Enhancement Automation User or Full Access tracking assignment receive the **My requests** tab; unassigned users see only the submission form, without an access warning. The tab lists only requests owned by the current authenticated principal, and returned attachment URLs pass through the same principal-scoped route.
 
-**My requests** initially loads the 10 newest requests and offers **Show more** for older pages. Each row summarizes the strongest release evidence available, preferring production and then staging, and includes the deployed application version when Handrail has recorded one. Missing release tracking or environment targets display **Deployment status unavailable** rather than **Not deployed**. **Dismiss** removes a row from that principal's default history; it never deletes, cancels, or changes the linked Work Request. Set `historyPageSize` on `EnhancementReporterDialog` to use another page size from 1 through 50.
+**My requests** initially loads the 10 newest active requests and offers **Show
+more** for older bounded pages. When discovery advertises them, the packaged UI
+also exposes search, status, sort, and Active/Dismissed/All visibility filters,
+individual **Dismiss** and **Restore** actions, and **Clear succeeded**. Each row
+summarizes the strongest release evidence available, preferring production and
+then staging, and includes the deployed application version when Handrail has
+recorded one. Missing release tracking or environment targets display
+**Deployment status unavailable** rather than **Not deployed**. Dismissal only
+changes that principal's history presentation; it never deletes, cancels, or
+changes the linked Work Request. Set `historyPageSize` on
+`EnhancementReporterDialog` to use another page size from 1 through 50.
 
 The SDK does not impose a history screen on app-owned integrations. `list` returns exact summary counts for a tab badge and status filters, plus the server-normalized query. Apps can style Active and Dismissed views independently, restore individual requests, or clear all succeeded requests while preserving every canonical Work Request.
 
-## Headless browser API
+## Custom/headless browser API
 
 ```ts
 import { createEnhancementReporter } from "@handrail/enhancement-reporter";
@@ -112,10 +180,9 @@ await reporter.submit({
   title: "Add a saved filter view",
   description: "Let me save the current filters and share the view with my team.",
   images: [{ data: file, filename: file.name, source: "upload" }],
-  notification: {
-    email: currentUser.email,
-    notifyOnResolution: true,
-  },
+  // Optional and report-scoped. Handrail derives the recipient from the
+  // authenticated, verified Known User; never collect or send an address.
+  notification: { notifyOnResolution: true },
 });
 
 const badgePage = await reporter.list({ limit: 1, visibility: "active" });
@@ -133,6 +200,19 @@ const release = await reporter.releaseStatus(current.id);
 await reporter.dismiss(current.id);
 await reporter.restore(current.id);
 await reporter.dismissSucceeded();
+```
+
+For a custom React presentation, mount the provider and consume the same client
+without mounting either packaged UI component:
+
+```tsx
+import { useEnhancementReporter } from "@handrail/enhancement-reporter/react";
+
+function SuggestionForm() {
+  const reporter = useEnhancementReporter();
+  // Build app-specific fields and consent UI, then call reporter.submit(...).
+  return <YourSuggestionForm reporter={reporter} />;
+}
 ```
 
 `list({ limit, offset, search, statusGroup, sort, visibility })` returns bounded pagination metadata, exact counts for `needs_attention`, `in_progress`, `succeeded`, and `closed`, and the normalized query. `visibility` accepts `active`, `dismissed`, or `all`. `releaseStatus` reports the eventual full commit SHA/version and its deployment state once staff approve and deliver the linked Work Request. `dismiss`, `restore`, and `dismissSucceeded` change only the current principal's history presentation while preserving the canonical request and linked Work Request.
