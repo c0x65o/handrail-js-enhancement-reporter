@@ -151,7 +151,7 @@ test("the React dialog hides notification consent without a Known User email", a
   await act(async () => renderer.unmount());
 });
 
-test("the React dialog silently reveals My requests only for enabled enhancement users", async () => {
+test("the React dialog preserves My requests compatibility with older enabled-user discovery", async () => {
   const client = {
     enabled: true,
     endpoint: "/api/handrail-enhancements",

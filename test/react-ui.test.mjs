@@ -144,7 +144,7 @@ test("image validation rejects unsupported uploads before delegating to the clie
   await act(async () => renderer.unmount());
 });
 
-test("semantic tabs and capability-driven history delegate filters, restore, and clear succeeded", async () => {
+test("Default Known Users receive capability-driven history without automation access", async () => {
   const listCalls = [];
   const restoreCalls = [];
   let clearCalls = 0;
@@ -153,9 +153,10 @@ test("semantic tabs and capability-driven history delegate filters, restore, and
     terminal: true, dismissed: true, dismissed_at: "2026-08-01T00:00:00Z",
   };
   const sdk = client(async () => discovery({
-    user_enabled: true,
-    access_level: "user",
+    user_enabled: false,
+    access_level: null,
     history: {
+      enabled: true,
       search: true,
       status_groups: ["succeeded"],
       sorts: ["oldest", "newest"],

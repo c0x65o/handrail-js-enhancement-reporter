@@ -96,6 +96,8 @@ export type EnhancementHistorySort = (typeof ENHANCEMENT_HISTORY_SORTS)[number];
 export type EnhancementHistoryVisibility = (typeof ENHANCEMENT_HISTORY_VISIBILITIES)[number];
 
 export interface EnhancementHistoryCapabilities {
+  /** True when this verified principal may use owned history. Added independently of automation access. */
+  readonly enabled?: boolean;
   readonly summary: boolean;
   readonly search: boolean;
   readonly status_groups: readonly EnhancementHistoryStatusGroup[];

@@ -553,9 +553,12 @@ export function EnhancementReporterDialog({
     setDiscovering(true);
     void client.discover().then((discovery) => {
       if (cancelled) return;
-      setHistoryAvailable(discovery?.enhancement_reporting?.user_enabled === true);
       const capabilities = discovery?.enhancement_reporting?.history || null;
-      setHistoryCapabilities(capabilities);
+      const ownedHistoryEnabled = capabilities?.enabled === true
+        || (capabilities?.enabled === undefined
+          && discovery?.enhancement_reporting?.user_enabled === true);
+      setHistoryAvailable(ownedHistoryEnabled);
+      setHistoryCapabilities(ownedHistoryEnabled ? capabilities : null);
       if (capabilities?.sorts.length && !capabilities.sorts.includes("newest")) {
         setHistorySort(capabilities.sorts[0]);
       }
