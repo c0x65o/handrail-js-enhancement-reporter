@@ -74,7 +74,6 @@ test("notification opt-in follows an accepted enhancement as a separate same-ori
     title: "Saved views",
     description: "Let me save these filters.",
     notification: {
-      email: " Reporter@Example.COM ",
       notifyOnResolution: true,
     },
   });
@@ -88,7 +87,6 @@ test("notification opt-in follows an accepted enhancement as a separate same-ori
   assert.equal(JSON.parse(calls[0].init.body).reporter_notification, undefined);
   assert.deepEqual(JSON.parse(calls[1].init.body), {
     reporter_notification: {
-      email: "reporter@example.com",
       notify_on_resolution: true,
       consent_version: "v1",
     },
@@ -115,7 +113,6 @@ test("notification failure does not turn an accepted enhancement into a failure"
     title: "Saved views",
     description: "Let me save these filters.",
     notification: {
-      email: "reporter@example.com",
       notifyOnResolution: true,
     },
   });

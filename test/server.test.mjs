@@ -131,7 +131,6 @@ test("handler validates and forwards report-scoped notification consent", async 
       headers: { "content-type": "application/json", origin: "https://app.example" },
       body: JSON.stringify({
         reporter_notification: {
-          email: " Reporter@Example.COM ",
           notify_on_resolution: true,
         },
       }),
@@ -141,7 +140,6 @@ test("handler validates and forwards report-scoped notification consent", async 
   assert.deepEqual(calls[0], ["subscribe", {
     request_id: "bridge-1",
     reporter_notification: {
-      email: "reporter@example.com",
       notify_on_resolution: true,
       consent_version: "v1",
     },

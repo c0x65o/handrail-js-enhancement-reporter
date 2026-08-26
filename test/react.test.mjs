@@ -24,9 +24,11 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   const client = {
     enabled: true,
     endpoint: "/api/handrail-enhancements",
-    reporterEmail: "reporter@example.com",
     notificationsEnabled: true,
-    discover: async () => ({ enhancement_reporting: { enabled: true, user_enabled: false, access_level: null, policy: { cells: { run_work_request: "ask", deploy_staging: "ask", deploy_production: "never" } } } }),
+    discover: async () => ({
+      enhancement_reporting: { enabled: true, user_enabled: false, access_level: null, policy: { cells: { run_work_request: "ask", deploy_staging: "ask", deploy_production: "never" } } },
+      reporter_notifications: { available: true, recipient_hint: "r***@example.com", lifecycles: ["fixed", "deployed"] },
+    }),
     submit: async (input) => {
       submissions.push(input);
       return {
@@ -78,7 +80,7 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
     && !node.props["aria-label"]);
   assert.equal(notificationCheckbox.props.checked, false);
   await act(async () => notificationCheckbox.props.onChange({ target: { checked: true } }));
-  assert.equal(renderer.root.findByProps({ type: "email" }).props.value, "reporter@example.com");
+  assert.equal(renderer.root.findAllByProps({ type: "email" }).length, 0);
 
   let prevented = 0;
   await act(async () => {
@@ -111,7 +113,6 @@ test("the React dialog captures a pasted image once and submits it as clipboard 
   assert.equal(submissions[0].images[0].source, "clipboard");
   assert.deepEqual(submissions[0].automationRequests, { run_work_request: true, deploy_staging: true, deploy_production: false });
   assert.deepEqual(submissions[0].notification, {
-    email: "reporter@example.com",
     notifyOnResolution: true,
   });
   assert.match(

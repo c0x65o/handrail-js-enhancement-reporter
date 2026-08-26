@@ -49,9 +49,10 @@ export interface EnhancementRequestInput {
 }
 
 export interface EnhancementNotificationPreference {
-  readonly email: string;
   readonly notifyOnResolution: true;
   readonly consentVersion?: "v1" | string;
+  /** @deprecated The server derives the recipient from the verified Known User identity. */
+  readonly email?: string;
 }
 
 export interface EnhancementNotificationSubscription {
@@ -74,7 +75,7 @@ export interface EnhancementReporterConfig {
   readonly enabled?: boolean;
   readonly appVersion?: string;
   readonly conversationId?: string;
-  /** Prefill the opt-in address; the reporter never enables updates by default. */
+  /** @deprecated Notification recipients are derived from Known Users. */
   readonly reporterEmail?: string;
   /** Set false to hide notification opt-in controls in the packaged dialog. */
   readonly notificationsEnabled?: boolean;
@@ -112,6 +113,11 @@ export interface EnhancementReporterDiscovery {
     readonly access_level?: string | null;
     readonly history?: EnhancementHistoryCapabilities;
     readonly policy?: unknown;
+  };
+  readonly reporter_notifications?: {
+    readonly available?: boolean;
+    readonly recipient_hint?: string | null;
+    readonly lifecycles?: readonly ("fixed" | "deployed")[];
   };
   readonly operations?: readonly string[];
   readonly [key: string]: unknown;
@@ -454,14 +460,12 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
     preference: EnhancementNotificationPreference,
   ): Promise<EnhancementNotificationSubscription> => {
     const id = clean(requestId, 160);
-    const email = clean(preference?.email, 254).toLowerCase();
-    if (!id || preference?.notifyOnResolution !== true || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email)) {
+    if (!id || preference?.notifyOnResolution !== true) {
       throw new EnhancementReporterError("invalid_notification", "A valid notification preference is required.");
     }
     const result = await request(`/requests/${encodeURIComponent(id)}/subscription`, {
       method: "POST",
       body: JSON.stringify({ reporter_notification: {
-        email,
         notify_on_resolution: true,
         consent_version: clean(preference.consentVersion, 40) || "v1",
       } }),

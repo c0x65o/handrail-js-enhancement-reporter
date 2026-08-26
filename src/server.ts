@@ -374,14 +374,12 @@ export function createSameOriginEnhancementReporterHandler<RequestType extends R
           }
           const body = await requestBody(request);
           const source = body?.reporter_notification;
-          const email = clean(source?.email, 254).toLowerCase();
-          if (source?.notify_on_resolution !== true || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email)) {
+          if (source?.notify_on_resolution !== true) {
             return json(400, { error: "A valid notification preference is required.", code: "enhancement_notification_invalid" });
           }
           return json(201, await client.subscribe({
             request_id: requestId,
             reporter_notification: {
-              email,
               notify_on_resolution: true,
               consent_version: clean(source?.consent_version, 40) || "v1",
             },
