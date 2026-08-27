@@ -107,8 +107,11 @@ test("appearance, responsive dialog semantics, focus containment, Escape, overla
     assert.equal(dialog.props["aria-modal"], "true");
     assert.ok(dialog.props["aria-labelledby"]);
     assert.ok(dialog.props["aria-describedby"]);
-    assert.equal(dialog.props.style.width, "min(760px, calc(100vw - 32px))");
-    assert.equal(dialog.props.style.height, "min(780px, calc(100dvh - 32px))");
+    assert.equal(dialog.props.style.width, "min(1280px, calc(100vw - 40px))");
+    assert.equal(dialog.props.style.height, "min(900px, calc(100dvh - 40px))");
+    assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-report-layout": "true" }).length, 1);
+    assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-context": "true" }).length, 1);
+    assert.match(JSON.stringify(renderer.toJSON()), /Attached context/);
     assert.equal(fakeDocument.activeElement, first);
     let prevented = false;
     fakeDocument.activeElement = last;
@@ -151,9 +154,11 @@ test("image validation rejects unsupported uploads before delegating to the clie
 
 test("an in-flight submission cannot be dismissed accidentally", async () => {
   let finishSubmission;
+  let submittedInput;
   let closed = 0;
   const sdk = client();
-  sdk.submit = () => new Promise((resolve) => {
+  sdk.submit = (input) => new Promise((resolve) => {
+    submittedInput = input;
     finishSubmission = resolve;
   });
   let renderer;
@@ -162,6 +167,7 @@ test("an in-flight submission cannot be dismissed accidentally", async () => {
       open: true,
       onClose: () => { closed += 1; },
       client: sdk,
+      appVersion: "2.0.0",
     }));
   });
   await act(async () => {
@@ -178,6 +184,8 @@ test("an in-flight submission cannot be dismissed accidentally", async () => {
   const closeButton = renderer.root.findByProps({ "aria-label": "Close enhancement reporter" });
   assert.equal(dialog.props["aria-busy"], true);
   assert.equal(closeButton.props.disabled, true);
+  assert.equal(submittedInput.priority, "medium");
+  assert.equal(submittedInput.context.appVersion, "2.0.0");
   dialog.props.onKeyDown({ key: "Escape", preventDefault() {} });
   overlay.props.onMouseDown({ target: overlay, currentTarget: overlay });
   assert.equal(closed, 0);
@@ -201,6 +209,7 @@ test("Default Known Users receive capability-driven history without automation a
   let clearCalls = 0;
   const dismissed = {
     id: "enh-1", title: "Saved filters", status: "succeeded", status_group: "succeeded",
+    description: "Let me save and reuse a filter.", created_at: "2026-08-01T00:00:00Z",
     terminal: true, dismissed: true, dismissed_at: "2026-08-01T00:00:00Z",
   };
   const sdk = client(async () => discovery({
@@ -231,6 +240,10 @@ test("Default Known Users receive capability-driven history without automation a
   await act(async () => tabs[0].props.onKeyDown({ key: "End", preventDefault: () => { prevented = true; } }));
   assert.equal(prevented, true);
   assert.equal(renderer.root.findAllByProps({ role: "tabpanel" }).length, 1);
+  assert.equal(renderer.root.findByProps({ role: "table" }).props["aria-label"], "Enhancement requests");
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 1);
+  await act(async () => renderer.root.findByProps({ "aria-label": "View Saved filters" }).props.onClick());
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-detail": "true" }).length, 1);
   assert.deepEqual(listCalls[0], { limit: 10, offset: 0, search: undefined, statusGroup: undefined, sort: "newest", visibility: "active" });
 
   await act(async () => {

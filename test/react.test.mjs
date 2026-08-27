@@ -66,7 +66,7 @@ test("the React dialog captures pasted and dropped images once and preserves the
   ));
   assert.equal(pasteTargets.length, 1, "paste should be handled at one dialog boundary");
   const dialog = renderer.root.findByProps({ role: "dialog" });
-  assert.equal(dialog.props.style.height, "min(720px, calc(100dvh - 24px))");
+  assert.equal(dialog.props.style.height, "min(900px, calc(100dvh - 40px))");
   assert.equal(dialog.props.style.overflow, "hidden");
   assert.equal(dialog.findAll((node) => node.props.style?.overflow === "auto").length, 1);
   assert.equal(renderer.root.findAll((node) => node.children?.includes("My requests")).length, 0);
@@ -123,6 +123,7 @@ test("the React dialog captures pasted and dropped images once and preserves the
   });
 
   assert.equal(submissions.length, 1);
+  assert.equal(submissions[0].priority, "medium");
   assert.equal(submissions[0].images.length, 2);
   assert.equal(submissions[0].images[0].filename, "clipboard.png");
   assert.equal(submissions[0].images[0].source, "clipboard");

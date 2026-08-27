@@ -21,6 +21,7 @@ test("browser submissions are same-origin policy requests with uploaded and past
       return new Response(JSON.stringify({ request: { id: "bridge-1", title: "Saved views", status: "needs_attention", terminal: false, linked_work_request: { id: "wr-1" } }, replayed: false }), { status: 201 });
     },
   });
+  assert.equal(reporter.appVersion, "1.2.3");
   const result = await reporter.submit({
     title: "Saved views",
     description: "Let me save these filters.",

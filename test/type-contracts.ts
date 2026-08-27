@@ -15,6 +15,7 @@ import type {
 const transportCompatibility: EnhancementBridgeClient | EnhancementTransportClient | null = null;
 
 const reporter = createEnhancementReporter({ endpoint: "/api/handrail-enhancements" });
+const configuredVersion: string | undefined = reporter.appVersion;
 const appearance: EnhancementReporterAppearance = {
   themeMode: "dark",
   tokens: { accent: "rebeccapurple", radius: "4px" },
@@ -34,3 +35,4 @@ void EnhancementReporterDialog;
 void appearance;
 void legacyProps;
 void transportCompatibility;
+void configuredVersion;

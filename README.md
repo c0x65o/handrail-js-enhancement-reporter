@@ -99,6 +99,11 @@ export function AccountMenu() {
 also exported separately for an app-owned launcher or menu. Both delegate
 discovery, submission, subscriptions, and history mutations to the same client
 provided by `EnhancementReporterProvider` (or to an explicit `client` prop).
+The compact, wide desktop dialog mirrors Handrail's packaged bug reporter: the
+request form and priority selector sit beside an **Attached context** panel,
+with notifications and policy-derived automation grouped into the same side
+rail. The context panel shows the current route, page title, application
+version, and viewport values that the client will submit.
 
 ### Appearance and accessibility
 
@@ -129,7 +134,8 @@ targets the dialog and `appearance.style` targets the overlay, so an
 application can add narrowly scoped CSS overrides. Launcher `className` and
 `style` props remain separate.
 
-The dialog is viewport-bounded and scrolls internally on smaller screens. It
+The dialog is viewport-bounded at 1280 × 900 px and scrolls internally on
+smaller screens. It
 has labeled dialog and tab semantics, traps keyboard focus while open, supports
 arrow/Home/End tab navigation, closes with Escape or an overlay click, and
 restores focus to the prior control. Loading, validation, failure, and success
@@ -159,7 +165,10 @@ Every verified Known User may submit while the runtime enhancement switch is ena
 **My requests** initially loads the 10 newest active requests and offers **Show
 more** for older bounded pages. When discovery advertises them, the packaged UI
 also exposes search, status, sort, and Active/Dismissed/All visibility filters,
-individual **Dismiss** and **Restore** actions, and **Clear succeeded**. Each row
+individual **Dismiss** and **Restore** actions, and **Clear succeeded**. The
+tracker uses a dense desktop table and changes to compact cards on narrow
+viewports; each row can expand to show the request description and attachment
+names. Each row
 summarizes the strongest release evidence available, preferring production and
 then staging, and includes the deployed application version when Handrail has
 recorded one. Missing release tracking or environment targets display

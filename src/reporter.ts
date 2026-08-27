@@ -425,6 +425,8 @@ async function responseJson(response: Response): Promise<any> {
 export interface EnhancementReporterClient {
   readonly enabled: boolean;
   readonly endpoint: string;
+  /** Application version attached to submissions when no per-request override is supplied. */
+  readonly appVersion?: string;
   readonly reporterEmail?: string;
   readonly notificationsEnabled?: boolean;
   discover(): Promise<EnhancementReporterDiscovery>;
@@ -446,6 +448,7 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
   const enabled = config.enabled !== false;
   const reporterEmail = clean(config.reporterEmail, 254).toLowerCase();
   const notificationsEnabled = config.notificationsEnabled !== false;
+  const appVersion = clean(config.appVersion, 160) || undefined;
   const defaultConversationId = clean(config.conversationId, 512) || randomId();
   if (enabled && typeof fetchImpl !== "function") throw new EnhancementReporterError("invalid_configuration", "A fetch implementation is required.");
 
@@ -491,6 +494,7 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
   return Object.freeze({
     enabled,
     endpoint,
+    appVersion,
     reporterEmail,
     notificationsEnabled,
     discover: () => request("/policy"),
