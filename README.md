@@ -2,7 +2,7 @@
 
 Authenticated, web-only customer enhancement requests for Handrail. The package provides a browser client, a ready-to-use React dialog, and a framework-neutral same-origin server handler with its own narrow Handrail REST transport. It does not require `@handrail/mcp`.
 
-Current releases apply the enhancement-specific Default, User, or Full Access matrix. Pending stays non-executing, Ask renders customer checkboxes, and Always applies automatically. Staging and production remain bounded by that matrix and Handrail's normal deployment gates. Every request stays scoped to the authenticated Known User who submitted it.
+Current releases apply the enhancement-specific Default, User, or Full Access matrix. Pending stays non-executing, Ask renders the Start work checkbox, and Always applies automatically. Production is decided from the submitted priority and Handrail's configured maximum source-change risk, followed by the normal Ship deployment gates. Every request stays scoped to the authenticated Known User who submitted it.
 
 ## Install
 
@@ -158,7 +158,7 @@ mail. The email includes an unsubscribe link. Set `notificationsEnabled: false` 
 legacy `reporterEmail` option is ignored and deprecated for source
 compatibility.
 
-When an action is configured as **Ask**, the dialog renders its checkbox. A staging or production checkbox is enabled only when the Work Request will start. **Always** actions do not require a customer checkbox; **Pending** Work Request policy keeps delivery unavailable.
+When Work Request changes are configured as **Ask**, the dialog renders its checkbox. The reporter never asks the customer to choose staging or production. **Always** starts work without a checkbox; Handrail separately compares the submitted priority and assessed source-change risk before production can join Ship when idle.
 
 Every verified Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin policy route before rendering navigation, and every verified user receives the **My requests** tab automatically. The tab lists only requests owned by the current authenticated principal, and returned attachment URLs pass through the same principal-scoped route. Enhancement Automation Default/User/Full Access tiers control automation policy only; applications do not need to assign each new user merely to enable owned history.
 

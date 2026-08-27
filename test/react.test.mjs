@@ -26,7 +26,7 @@ test("the React dialog captures pasted and dropped images once and preserves the
     endpoint: "/api/handrail-enhancements",
     notificationsEnabled: true,
     discover: async () => ({
-      enhancement_reporting: { enabled: true, user_enabled: false, access_level: null, policy: { cells: { run_work_request: "ask", deploy_staging: "ask", deploy_production: "never" } } },
+      enhancement_reporting: { enabled: true, user_enabled: false, access_level: null, policy: { cells: { run_work_request: "ask" } } },
       reporter_notifications: { available: true, recipient_hint: "r***@example.com", lifecycles: ["fixed"] },
     }),
     submit: async (input) => {
@@ -73,7 +73,6 @@ test("the React dialog captures pasted and dropped images once and preserves the
   assert.equal(renderer.root.findAllByProps({ role: "alert" }).length, 0);
 
   await act(async () => renderer.root.findByProps({ "aria-label": "Start work on this request" }).props.onChange({ target: { checked: true } }));
-  await act(async () => renderer.root.findByProps({ "aria-label": "Deploy to staging" }).props.onChange({ target: { checked: true } }));
   const notificationCheckbox = renderer.root.findByProps({
     "aria-label": "Email me when this enhancement is fixed",
   });
@@ -129,7 +128,7 @@ test("the React dialog captures pasted and dropped images once and preserves the
   assert.equal(submissions[0].images[0].source, "clipboard");
   assert.equal(submissions[0].images[1].filename, "dropped.png");
   assert.equal(submissions[0].images[1].source, "upload");
-  assert.deepEqual(submissions[0].automationRequests, { run_work_request: true, deploy_staging: true, deploy_production: false });
+  assert.deepEqual(submissions[0].automationRequests, { run_work_request: true });
   assert.deepEqual(submissions[0].notification, {
     notifyOnResolution: true,
   });
@@ -174,7 +173,7 @@ test("the React dialog preserves My requests compatibility with older enabled-us
   const client = {
     enabled: true,
     endpoint: "/api/handrail-enhancements",
-    discover: async () => ({ enhancement_reporting: { enabled: true, user_enabled: true, access_level: "user", policy: { cells: { run_work_request: "ask", deploy_staging: "ask", deploy_production: "never" } } } }),
+    discover: async () => ({ enhancement_reporting: { enabled: true, user_enabled: true, access_level: "user", policy: { cells: { run_work_request: "ask" } } } }),
     submit: async () => { throw new Error("not used"); },
     list: async () => ({
       contract_version: "v1",
@@ -193,10 +192,9 @@ test("the React dialog preserves My requests compatibility with older enabled-us
   assert.equal(renderer.root.findAll((node) => node.children?.includes("My requests")).length, 1);
   assert.equal(renderer.root.findAllByProps({ role: "alert" }).length, 0);
   const startWork = renderer.root.findByProps({ "aria-label": "Start work on this request" });
-  const deployStaging = renderer.root.findByProps({ "aria-label": "Deploy to staging" });
-  assert.equal(deployStaging.props.disabled, true);
   await act(async () => startWork.props.onChange({ target: { checked: true } }));
-  assert.equal(renderer.root.findByProps({ "aria-label": "Deploy to staging" }).props.disabled, false);
+  assert.equal(renderer.root.findAllByProps({ "aria-label": "Deploy to staging" }).length, 0);
+  assert.equal(renderer.root.findAllByProps({ "aria-label": "Deploy to production" }).length, 0);
   await act(async () => renderer.unmount());
 });
 

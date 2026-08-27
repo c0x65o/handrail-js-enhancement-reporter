@@ -89,8 +89,6 @@ interface SelectedImage {
 
 interface EnhancementPolicyCells {
   readonly run_work_request: "pending" | "ask" | "always";
-  readonly deploy_staging: "never" | "ask" | "always";
-  readonly deploy_production: "never" | "ask" | "always";
 }
 
 type UiVariables = CSSProperties & Record<`--handrail-enhancement-${string}`, string>;
@@ -127,8 +125,6 @@ const RESPONSIVE_DIALOG_CSS = `
 
 const PENDING_POLICY: EnhancementPolicyCells = Object.freeze({
   run_work_request: "pending",
-  deploy_staging: "never",
-  deploy_production: "never",
 });
 
 const LIGHT_TOKENS: EnhancementReporterThemeTokens = Object.freeze({
@@ -199,12 +195,6 @@ function policyCells(value: unknown): EnhancementPolicyCells {
     : "pending";
   return {
     run_work_request: run,
-    deploy_staging: run !== "pending" && ["never", "ask", "always"].includes(cells?.deploy_staging)
-      ? cells.deploy_staging
-      : "never",
-    deploy_production: run !== "pending" && ["never", "ask", "always"].includes(cells?.deploy_production)
-      ? cells.deploy_production
-      : "never",
   };
 }
 
@@ -572,8 +562,6 @@ export function EnhancementReporterDialog({
   const [policy, setPolicy] = useState<EnhancementPolicyCells>(PENDING_POLICY);
   const [automationRequests, setAutomationRequests] = useState({
     run_work_request: false,
-    deploy_staging: false,
-    deploy_production: false,
   });
   const [discovering, setDiscovering] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -657,8 +645,6 @@ export function EnhancementReporterDialog({
     setPolicy(PENDING_POLICY);
     setAutomationRequests({
       run_work_request: false,
-      deploy_staging: false,
-      deploy_production: false,
     });
     setNotifyOnResolution(false);
     setNotificationAvailable(false);
@@ -828,8 +814,6 @@ export function EnhancementReporterDialog({
       setImages([]);
       setAutomationRequests({
         run_work_request: false,
-        deploy_staging: false,
-        deploy_production: false,
       });
       setNotifyOnResolution(false);
     } catch (caught) {
@@ -909,11 +893,7 @@ export function EnhancementReporterDialog({
 
   if (!open) return null;
 
-  const workWillStart = policy.run_work_request === "always"
-    || (policy.run_work_request === "ask" && automationRequests.run_work_request);
-  const hasAskOptions = policy.run_work_request === "ask"
-    || policy.deploy_staging === "ask"
-    || policy.deploy_production === "ask";
+  const hasAskOptions = policy.run_work_request === "ask";
   const canNotify = client.notificationsEnabled !== false && notificationAvailable;
   const variables = appearanceVariables(appearance);
   const closeDialog = () => {
@@ -1121,19 +1101,8 @@ export function EnhancementReporterDialog({
                 <input type="checkbox" aria-label="Start work on this request" checked={automationRequests.run_work_request} onChange={(event) => setAutomationRequests((current) => ({
                   ...current,
                   run_work_request: event.target.checked,
-                  ...(!event.target.checked
-                    ? { deploy_staging: false, deploy_production: false }
-                    : {}),
                 }))} />
                 <span><strong>Start work on this request</strong><span style={{ display: "block", marginTop: 2, color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>Otherwise it remains pending for the product team.</span></span>
-              </label>}
-              {policy.deploy_staging === "ask" && <label style={{ ...styles.checkboxLabel, alignItems: "center", color: workWillStart ? "inherit" : "var(--handrail-enhancement-muted-text)", cursor: workWillStart ? "pointer" : "not-allowed" }}>
-                <input type="checkbox" aria-label="Deploy to staging" disabled={!workWillStart} checked={automationRequests.deploy_staging} onChange={(event) => setAutomationRequests((current) => ({ ...current, deploy_staging: event.target.checked }))} />
-                <strong>Deploy to staging after implementation</strong>
-              </label>}
-              {policy.deploy_production === "ask" && <label style={{ ...styles.checkboxLabel, alignItems: "center", color: workWillStart ? "inherit" : "var(--handrail-enhancement-muted-text)", cursor: workWillStart ? "pointer" : "not-allowed" }}>
-                <input type="checkbox" aria-label="Deploy to production" disabled={!workWillStart} checked={automationRequests.deploy_production} onChange={(event) => setAutomationRequests((current) => ({ ...current, deploy_production: event.target.checked }))} />
-                <strong>Deploy to production after required validation</strong>
               </label>}
                 </fieldset>}
               </aside>

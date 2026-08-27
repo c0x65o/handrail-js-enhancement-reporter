@@ -118,7 +118,7 @@ test("handler overwrites raw execution fields and forwards only enhancement chec
   assert.equal(payload.requested_delivery_ceiling, "work_request");
   assert.equal(payload.run_codex, false);
   assert.equal(payload.auto_deploy_env, null);
-  assert.deepEqual(payload.automation_requests, { run_work_request: true, deploy_staging: true, deploy_production: false });
+  assert.deepEqual(payload.automation_requests, { run_work_request: true });
   assert.equal(payload.reporter_sdk.package, "@handrail/enhancement-reporter");
 });
 

@@ -24,8 +24,6 @@ function automationRequests(value: unknown): Record<string, boolean> {
     : {};
   return {
     run_work_request: source.run_work_request === true,
-    deploy_staging: source.deploy_staging === true,
-    deploy_production: source.deploy_production === true,
   };
 }
 

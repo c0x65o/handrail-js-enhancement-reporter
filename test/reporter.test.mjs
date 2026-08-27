@@ -26,7 +26,7 @@ test("browser submissions are same-origin policy requests with uploaded and past
     title: "Saved views",
     description: "Let me save these filters.",
     idempotencyKey: "intent-1",
-    automationRequests: { run_work_request: true, deploy_staging: true },
+    automationRequests: { run_work_request: true },
     images: [
       { data: new Blob([png], { type: "image/png" }), filename: "upload.png", source: "upload" },
       { data: `data:image/png;base64,${Buffer.from(png).toString("base64")}`, filename: "paste.png", source: "clipboard" },
@@ -41,7 +41,7 @@ test("browser submissions are same-origin policy requests with uploaded and past
   assert.equal(payload.context.app_version, "1.2.3");
   assert.deepEqual(payload.attachments.map((item) => item.source), ["upload", "clipboard"]);
   assert.equal(payload.reporter_sdk.package, "@handrail/enhancement-reporter");
-  assert.deepEqual(payload.automation_requests, { run_work_request: true, deploy_staging: true, deploy_production: false });
+  assert.deepEqual(payload.automation_requests, { run_work_request: true });
   assert.equal("token" in payload, false);
 });
 
