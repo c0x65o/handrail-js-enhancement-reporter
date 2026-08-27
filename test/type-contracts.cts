@@ -7,8 +7,13 @@ const props: react.EnhancementReporterDialogProps = {
   onClose() {},
   client: reporter,
 };
+const appearance: react.EnhancementReporterAppearance = {
+  tokens: { warningText: "#b54708" },
+  style: { "--handrail-enhancement-info-text": "#175cd3" } satisfies react.EnhancementReporterStyle,
+};
 void react.EnhancementReporterProvider;
 void react.EnhancementReporterButton;
 void react.EnhancementReporterDialog;
 void props;
+void appearance;
 void configuredVersion;

@@ -1047,35 +1047,81 @@ export function EnhancementReporterDialog({
     }
   };
 
+  const historyCountFor = (status: EnhancementHistoryStatusGroup | ""): number => {
+    if (!status) return historySummary?.total ?? historyTotal;
+    return historySummary?.[status] ?? history.filter((request) => request.status_group === status).length;
+  };
+  const chooseHistoryVisibility = (next: EnhancementHistoryVisibility) => {
+    setHistoryVisibility(next);
+    setHistoryStatus("");
+    void loadHistory(0, { ...currentHistoryQuery(), visibility: next, statusGroup: undefined });
+  };
+  const chooseHistoryStatus = (next: EnhancementHistoryStatusGroup | "") => {
+    setHistoryStatus(next);
+    void loadHistory(0, { ...currentHistoryQuery(), statusGroup: next || undefined });
+  };
+  const searchHistory = (next: string) => {
+    setHistorySearch(next);
+    if (historySearchTimerRef.current !== null) clearTimeout(historySearchTimerRef.current);
+    historySearchTimerRef.current = setTimeout(() => {
+      historySearchTimerRef.current = null;
+      void loadHistory(0, { ...currentHistoryQuery(), search: next.trim() || undefined });
+    }, 300);
+  };
+
   const historyForm = <form onSubmit={(event) => {
     event.preventDefault();
     void loadHistory(0);
   }}>
-    {(historyCapabilities?.search
-      || historyCapabilities?.status_groups.length
-      || historyCapabilities?.sorts.length
-      || historyCapabilities?.visibilities.length) && <div style={styles.historyControls}>
-      {historyCapabilities?.search && <input aria-label="Search my requests" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Search my requests" style={styles.input} />}
-      {Boolean(historyCapabilities?.status_groups.length) && <select aria-label="Enhancement status" value={historyStatus} onChange={(event) => setHistoryStatus(event.target.value as EnhancementHistoryStatusGroup | "")} style={styles.input}>
-        <option value="">All statuses</option>
-        {historyCapabilities!.status_groups.map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}
-      </select>}
-      {Boolean(historyCapabilities?.visibilities.length) && <select aria-label="Enhancement visibility" value={historyVisibility} onChange={(event) => setHistoryVisibility(event.target.value as EnhancementHistoryVisibility)} style={styles.input}>
-        {historyCapabilities!.visibilities.map((visibility) => <option key={visibility} value={visibility}>{displayLabel(visibility)}</option>)}
-      </select>}
-      {Boolean(historyCapabilities?.sorts.length) && <select aria-label="Enhancement sort order" value={historySort} onChange={(event) => setHistorySort(event.target.value as EnhancementHistorySort)} style={styles.input}>
-        {historyCapabilities!.sorts.map((sort) => <option key={sort} value={sort}>{displayLabel(sort)}</option>)}
-      </select>}
-    </div>}
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-      <button type="submit" disabled={loadingHistory} style={buttonStyle("secondary")}>
-        {loadingHistory ? "Loading…" : historyCapabilities ? "Apply filters" : "Refresh"}
-      </button>
-      {historyCapabilities?.dismiss_succeeded && <button type="button" disabled={busyHistoryId !== null} onClick={() => void clearSucceeded()} style={buttonStyle("secondary")}>
-        {busyHistoryId === "__succeeded__" ? "Clearing…" : "Clear succeeded"}
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>
+        <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 999, background: "var(--handrail-enhancement-danger-text)" }} />
+        <strong style={{ color: "var(--handrail-enhancement-text)" }}>{historySummary?.needs_attention ?? historyCountFor("needs_attention")}</strong> need attention
+        <span aria-hidden="true" style={{ width: 1, height: 16, margin: "0 4px", background: "var(--handrail-enhancement-border)" }} />
+        <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 999, background: "var(--handrail-enhancement-info-text)" }} />
+        <strong style={{ color: "var(--handrail-enhancement-text)" }}>{historySummary?.in_progress ?? historyCountFor("in_progress")}</strong> in progress
+      </div>
+      <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{loadingHistory ? "Updating…" : history.length ? "Updated just now" : ""}</span>
+    </div>
+
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+      {Boolean(historyCapabilities?.visibilities.length) && <div role="group" aria-label="Enhancement visibility" style={{ display: "flex", gap: 2, padding: 2, border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, background: "var(--handrail-enhancement-surface-muted)" }}>
+        {historyCapabilities!.visibilities.map((visibility) => <button
+          key={visibility}
+          type="button"
+          aria-pressed={historyVisibility === visibility}
+          disabled={loadingHistory || busyHistoryId !== null}
+          onClick={() => chooseHistoryVisibility(visibility)}
+          style={{ ...styles.tab, flex: "0 0 auto", minHeight: 32, padding: "5px 12px", ...(historyVisibility === visibility ? styles.selectedControl : {}) }}
+        >{visibility === "dismissed" ? "Dismissed" : displayLabel(visibility)}</button>)}
+      </div>}
+      {historyCapabilities?.dismiss_succeeded && (historySummary?.succeeded ?? 0) > 0 && <button type="button" disabled={busyHistoryId !== null} onClick={() => void clearSucceeded()} style={{ ...buttonStyle("secondary"), minHeight: 30, padding: "4px 3px", border: 0, color: "var(--handrail-enhancement-accent)", background: "transparent" }}>
+        {busyHistoryId === "__succeeded__" ? "Clearing…" : `Clear succeeded (${historySummary?.succeeded ?? 0})`}
       </button>}
     </div>
-    <div style={{ marginBottom: 12, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>
+
+    {(historyCapabilities?.search || historyCapabilities?.status_groups.length || historyCapabilities?.sorts.length) && <div style={styles.historyControls}>
+      {historyCapabilities?.search && <input aria-label="Search my requests" autoComplete="off" maxLength={200} type="search" value={historySearch} onChange={(event) => searchHistory(event.target.value)} placeholder="Search title, request, or release…" style={{ ...styles.input, flex: "1 1 320px", minWidth: 0 }} />}
+      {Boolean(historyCapabilities?.status_groups.length) && <button type="button" aria-expanded={historyFiltersVisible} onClick={() => setHistoryFiltersVisible((current) => !current)} style={{ ...buttonStyle("secondary"), flex: "0 0 auto", ...(historyFiltersVisible ? styles.selectedControl : {}) }}>Filters</button>}
+      {Boolean(historyCapabilities?.sorts.length) && <select aria-label="Enhancement sort order" value={historySort} onChange={(event) => {
+        const next = event.target.value as EnhancementHistorySort;
+        setHistorySort(next);
+        void loadHistory(0, { ...currentHistoryQuery(), sort: next });
+      }} style={{ ...styles.input, width: 140, flex: "0 1 140px" }}>
+        {historyCapabilities!.sorts.map((sort) => <option key={sort} value={sort}>{sort === "newest" ? "Newest" : "Oldest"}</option>)}
+      </select>}
+    </div>}
+
+    {historyFiltersVisible && Boolean(historyCapabilities?.status_groups.length) && <div role="group" aria-label="Enhancement status" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+      {(["", ...historyCapabilities!.status_groups] as const).map((status) => <button
+        key={status || "all"}
+        type="button"
+        aria-pressed={historyStatus === status}
+        onClick={() => chooseHistoryStatus(status)}
+        style={{ ...buttonStyle("secondary"), minHeight: 30, padding: "4px 11px", borderRadius: 999, ...(historyStatus === status ? styles.activeTab : {}) }}
+      >{status ? displayLabel(status) : "All"} <span style={{ opacity: 0.75 }}>{historyCountFor(status)}</span></button>)}
+    </div>}
+    <div style={{ marginBottom: 8, color: "var(--handrail-enhancement-muted-text)", fontSize: 10 }}>
       Dismiss and Clear succeeded only hide requests from your list; they do not cancel or delete the canonical request or linked Work Request.
     </div>
   </form>;
@@ -1106,17 +1152,17 @@ export function EnhancementReporterDialog({
       <header data-handrail-enhancement-header="true" style={styles.header}>
         <div style={{ minWidth: 0 }}>
           <div style={{ marginBottom: 4, color: "var(--handrail-enhancement-accent)", fontSize: 10, fontWeight: 800, letterSpacing: "0.14em" }}>HELP US IMPROVE IT</div>
-          <h2 id={headingId} style={{ margin: 0, fontSize: 22, lineHeight: 1.2, letterSpacing: "-0.02em" }}>{heading}</h2>
+          <h2 id={headingId} style={{ margin: 0, fontSize: 20, lineHeight: 1.2, letterSpacing: "-0.02em" }}>{heading}</h2>
           <div id={descriptionId} style={{ marginTop: 4, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>
             Describe the improvement and review the attached context before sending.
           </div>
         </div>
-        <button type="button" aria-label="Close enhancement reporter" disabled={submitting} onClick={closeDialog} style={{ ...buttonStyle("secondary"), width: 44, minWidth: 44, height: 44, padding: 0, fontSize: 22, lineHeight: 1, opacity: submitting ? 0.65 : 1 }}>×</button>
+        <button type="button" aria-label="Close enhancement reporter" disabled={submitting} onClick={closeDialog} style={{ ...buttonStyle("secondary"), width: 38, minWidth: 38, height: 38, padding: 0, fontSize: 20, lineHeight: 1, opacity: submitting ? 0.65 : 1 }}>×</button>
       </header>
       <div data-handrail-enhancement-content="true" style={styles.content}>
         {historyAvailable && <div role="tablist" aria-label="Enhancement reporter views" data-handrail-enhancement-tabs="true" style={styles.tabs}>
           <button id={newTabId} type="button" role="tab" aria-controls={newPanelId} aria-selected={tab === "new"} tabIndex={tab === "new" ? 0 : -1} onClick={() => selectTab("new")} onKeyDown={(event) => onTabKeyDown(event, "new")} style={{ ...styles.tab, ...(tab === "new" ? styles.activeTab : {}) }}>New request</button>
-          <button id={historyTabId} type="button" role="tab" aria-controls={historyPanelId} aria-selected={tab === "history"} tabIndex={tab === "history" ? 0 : -1} onClick={() => selectTab("history")} onKeyDown={(event) => onTabKeyDown(event, "history")} style={{ ...styles.tab, ...(tab === "history" ? styles.activeTab : {}) }}>My requests</button>
+          <button id={historyTabId} type="button" role="tab" aria-controls={historyPanelId} aria-selected={tab === "history"} tabIndex={tab === "history" ? 0 : -1} onClick={() => selectTab("history")} onKeyDown={(event) => onTabKeyDown(event, "history")} style={{ ...styles.tab, ...(tab === "history" ? styles.activeTab : {}) }}>My requests{historyTotal > 0 && <span aria-label={`${historyTotal} total`} style={{ display: "inline-grid", placeItems: "center", minWidth: 22, height: 22, marginLeft: 8, padding: "0 6px", borderRadius: 999, color: tab === "history" ? "var(--handrail-enhancement-accent-text)" : "var(--handrail-enhancement-muted-text)", background: tab === "history" ? "color-mix(in srgb, var(--handrail-enhancement-accent-text) 18%, transparent)" : "var(--handrail-enhancement-surface-muted)", fontSize: 11 }}>{historyTotal}</span>}</button>
         </div>}
 
         {error && <div role="alert" aria-live="assertive" style={{ ...styles.status, background: "var(--handrail-enhancement-danger-surface)", color: "var(--handrail-enhancement-danger-text)" }}>{error}</div>}
@@ -1131,7 +1177,7 @@ export function EnhancementReporterDialog({
             <span role="status" aria-live="polite" style={styles.visuallyHidden}>
               {submitting ? "Submitting your enhancement request…" : ""}
             </span>
-            <div data-handrail-enhancement-report-layout="true" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.7fr) minmax(280px, .8fr)", gap: 20, alignItems: "start" }}>
+            <div data-handrail-enhancement-report-layout="true" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.8fr) minmax(280px, .72fr)", gap: 16, alignItems: "start" }}>
               <section aria-label="Enhancement details">
                 <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(150px, .3fr)", gap: 12 }}>
                   <label style={styles.label}>
@@ -1147,7 +1193,7 @@ export function EnhancementReporterDialog({
                 </div>
                 <label style={styles.label}>
                   Desired outcome
-                  <textarea style={{ ...styles.input, minHeight: 112, resize: "vertical" }} maxLength={20_000} required value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the outcome you want. You can paste screenshots here." />
+                  <textarea style={{ ...styles.input, minHeight: 96, resize: "vertical" }} maxLength={20_000} required value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the outcome you want. You can paste screenshots here." />
                 </label>
                 <div
               data-handrail-enhancement-image-dropzone="true"
@@ -1174,16 +1220,16 @@ export function EnhancementReporterDialog({
                 </div>
               </section>
 
-              <aside data-handrail-enhancement-context="true" aria-label="Attached context and options" style={{ display: "grid", gap: 12 }}>
-                <section style={{ overflow: "hidden", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 12, background: "var(--handrail-enhancement-surface)" }}>
-                  <h3 style={{ margin: 0, padding: "12px 14px", borderBottom: "1px solid var(--handrail-enhancement-border)", fontSize: 13 }}>Attached context</h3>
+              <aside data-handrail-enhancement-context="true" aria-label="Attached context and options" style={{ display: "grid", gap: 10 }}>
+                <section style={{ overflow: "hidden", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, background: "var(--handrail-enhancement-surface)" }}>
+                  <h3 style={{ margin: 0, padding: "9px 12px", borderBottom: "1px solid var(--handrail-enhancement-border)", fontSize: 12 }}>Attached context</h3>
                   {([[
                     "Current page", attachedContext.route || "Not provided",
-                  ], ["Page title", attachedContext.pageTitle || "Not provided"], ["App version", attachedContext.appVersion || "Not provided"], ["Viewport", attachedContext.viewport || "Not provided"]] as const).map(([label, value]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "110px minmax(0, 1fr)", gap: 12, padding: "10px 14px", borderBottom: "1px solid var(--handrail-enhancement-border)", fontSize: 12 }}>
+                  ], ["Page title", attachedContext.pageTitle || "Not provided"], ["App version", attachedContext.appVersion || "Not provided"], ["Viewport", attachedContext.viewport || "Not provided"]] as const).map(([label, value]) => <div key={label} style={{ display: "grid", gridTemplateColumns: "100px minmax(0, 1fr)", gap: 10, padding: "8px 12px", borderBottom: "1px solid var(--handrail-enhancement-border)", fontSize: 11 }}>
                     <span style={{ color: "var(--handrail-enhancement-muted-text)" }}>{label}</span>
                     <strong title={value} style={{ overflow: "hidden", textAlign: "right", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</strong>
                   </div>)}
-                  <p style={{ margin: 0, padding: "11px 14px", color: "var(--handrail-enhancement-muted-text)", background: "var(--handrail-enhancement-surface-muted)", fontSize: 11 }}>Only context shown here is included with this request.</p>
+                  <p style={{ margin: 0, padding: "8px 12px", color: "var(--handrail-enhancement-muted-text)", background: "var(--handrail-enhancement-surface-muted)", fontSize: 10 }}>Only context shown here is included with this request.</p>
                 </section>
 
                 {canNotify && <fieldset style={{ ...styles.fieldset, margin: 0 }}>
@@ -1231,7 +1277,7 @@ export function EnhancementReporterDialog({
               onRestore={restoreRequest}
             />)}
           </div>}
-          <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", marginTop: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 9, flexWrap: "wrap", margin: "auto -20px -12px", padding: "9px 20px", borderTop: "1px solid var(--handrail-enhancement-border)" }}>
             {historyHasMore && <button type="button" disabled={loadingHistory} onClick={() => void loadHistory(history.length)} style={buttonStyle("secondary")}>{loadingHistory ? "Loading…" : "Show more"}</button>}
             {historyTotal > 0 && <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{history.length} of {historyTotal}</span>}
             {historySummary && <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{historySummary.succeeded} succeeded · {historySummary.in_progress} in progress · {historySummary.needs_attention} needing attention</span>}

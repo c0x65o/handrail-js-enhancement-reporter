@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import {
   EnhancementReporterButton,
   EnhancementReporterDialog,
@@ -6,6 +5,7 @@ import {
   createEnhancementReporter,
   type EnhancementReporterAppearance,
   type EnhancementReporterDialogProps,
+  type EnhancementReporterStyle,
 } from "@handrail/enhancement-reporter/react";
 import type {
   EnhancementBridgeClient,
@@ -18,8 +18,8 @@ const reporter = createEnhancementReporter({ endpoint: "/api/handrail-enhancemen
 const configuredVersion: string | undefined = reporter.appVersion;
 const appearance: EnhancementReporterAppearance = {
   themeMode: "dark",
-  tokens: { accent: "rebeccapurple", radius: "4px" },
-  style: { zIndex: 20 } satisfies CSSProperties,
+  tokens: { accent: "rebeccapurple", warningText: "#fbc46d", infoText: "#a7c7ff", radius: "4px" },
+  style: { zIndex: 20, "--handrail-enhancement-accent": "#7c3aed" } satisfies EnhancementReporterStyle,
 };
 const legacyProps: EnhancementReporterDialogProps = {
   open: true,

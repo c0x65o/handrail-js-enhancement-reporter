@@ -118,23 +118,30 @@ tokens without replacing the UI:
     tokens: {
       accent: "#7c3aed",
       accentText: "#ffffff",
+      infoText: "#60a5fa",
       radius: "8px",
       fontFamily: "var(--app-font)",
     },
-    style: { zIndex: 1000 },
+    style: {
+      zIndex: 1000,
+      "--handrail-enhancement-warning-text": "var(--app-warning)",
+    },
   }}
 />
 ```
 
 Available tokens are `accent`, `accentText`, `surface`, `surfaceMuted`, `text`,
 `mutedText`, `border`, `overlay`, `dangerSurface`, `dangerText`,
-`successSurface`, `successText`, `radius`, and `fontFamily`. They map to scoped
+`successSurface`, `successText`, `warningSurface`, `warningText`, `infoSurface`,
+`infoText`, `radius`, and `fontFamily`. They map to scoped
 `--handrail-enhancement-*` CSS custom properties. `appearance.className`
 targets the dialog and `appearance.style` targets the overlay, so an
-application can add narrowly scoped CSS overrides. Launcher `className` and
+application can add narrowly scoped, type-safe CSS-variable overrides. Direct
+variables in `appearance.style` take precedence over `appearance.tokens`.
+Launcher `className` and
 `style` props remain separate.
 
-The dialog is viewport-bounded at 1280 × 900 px and scrolls internally on
+The dialog is viewport-bounded at 1560 × 960 px and scrolls internally on
 smaller screens. It
 has labeled dialog and tab semantics, traps keyboard focus while open, supports
 arrow/Home/End tab navigation, closes with Escape or an overlay click, and
