@@ -236,7 +236,6 @@ test("an in-flight submission cannot be dismissed accidentally", async () => {
 test("Default Known Users receive capability-driven history without automation access", async () => {
   const listCalls = [];
   const restoreCalls = [];
-  let clearCalls = 0;
   const dismissed = {
     id: "enh-1", title: "Saved filters", status: "succeeded", status_group: "succeeded",
     description: "Let me save and reuse a filter.", created_at: "2026-08-01T00:00:00Z",
@@ -260,7 +259,6 @@ test("Default Known Users receive capability-driven history without automation a
     return { contract_version: "v1", requests: [dismissed], pagination: { limit: options.limit, offset: 0, total: 1, has_more: false }, summary: { total: 1, needs_attention: 0, in_progress: 0, succeeded: 1, closed: 0 } };
   };
   sdk.restore = async (id) => { restoreCalls.push(id); return { request_id: id }; };
-  sdk.dismissSucceeded = async () => { clearCalls += 1; return { dismissed_count: 1 }; };
   sdk.dismiss = async () => { throw new Error("not used"); };
   let renderer;
   await act(async () => { renderer = create(createElement(EnhancementReporterDialog, { open: true, onClose() {}, client: sdk })); });
@@ -272,6 +270,8 @@ test("Default Known Users receive capability-driven history without automation a
   assert.equal(renderer.root.findAllByProps({ role: "tabpanel" }).length, 1);
   assert.equal(renderer.root.findByProps({ role: "table" }).props["aria-label"], "Enhancement requests");
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 1);
+  assert.deepEqual(renderer.root.findByProps({ "aria-label": "Enhancement visibility" }).findAllByType("button").map((button) => button.children.join("")), ["Archived", "Active", "All"]);
+  assert.equal(renderer.root.findAll((node) => node.type === "button" && node.children?.some((child) => typeof child === "string" && child.startsWith("Clear succeeded"))).length, 0);
   await act(async () => renderer.root.findByProps({ "aria-label": "View Saved filters" }).props.onClick());
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-detail": "true" }).length, 1);
   assert.deepEqual(listCalls[0], { limit: 10, offset: 0, search: undefined, statusGroup: undefined, sort: "newest", visibility: "active" });
@@ -287,7 +287,5 @@ test("Default Known Users receive capability-driven history without automation a
   assert.deepEqual(listCalls.at(-1), { limit: 10, offset: 0, search: "filters", statusGroup: "succeeded", sort: "newest", visibility: "all" });
   await act(async () => renderer.root.findByProps({ "aria-label": "Restore Saved filters" }).props.onClick());
   assert.deepEqual(restoreCalls, ["enh-1"]);
-  await act(async () => renderer.root.find((node) => node.type === "button" && node.children?.some((child) => typeof child === "string" && child.startsWith("Clear succeeded"))).props.onClick());
-  assert.equal(clearCalls, 1);
   await act(async () => renderer.unmount());
 });

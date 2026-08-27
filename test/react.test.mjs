@@ -198,7 +198,7 @@ test("the React dialog preserves My requests compatibility with older enabled-us
   await act(async () => renderer.unmount());
 });
 
-test("history pages on demand, shows deployment versions, and dismisses without cancellation", async () => {
+test("history pages on demand, shows deployment versions, and archives without cancellation", async () => {
   const listCalls = [];
   const dismissCalls = [];
   const requests = [
@@ -261,9 +261,9 @@ test("history pages on demand, shows deployment versions, and dismisses without 
   await act(async () => showMore.props.onClick());
   assert.deepEqual(listCalls, [{ limit: 1, offset: 0 }, { limit: 1, offset: 1 }]);
   assert.equal(renderer.root.findAll((node) => node.children?.includes("Deployment status unavailable · v1.9.0")).length, 1);
-  const dismiss = renderer.root.findByProps({ "aria-label": "Dismiss First enhancement" });
-  await act(async () => dismiss.props.onClick());
+  const archive = renderer.root.findByProps({ "aria-label": "Archive First enhancement" });
+  await act(async () => archive.props.onClick());
   assert.deepEqual(dismissCalls, ["request-1"]);
-  assert.equal(renderer.root.findAllByProps({ "aria-label": "Dismiss First enhancement" }).length, 0);
+  assert.equal(renderer.root.findAllByProps({ "aria-label": "Archive First enhancement" }).length, 0);
   await act(async () => renderer.unmount());
 });

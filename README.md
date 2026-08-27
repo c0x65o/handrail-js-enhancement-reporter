@@ -177,20 +177,21 @@ Every verified Known User may submit while the runtime enhancement switch is ena
 
 **My requests** initially loads the 10 newest active requests and offers **Show
 more** for older bounded pages. When discovery advertises them, the packaged UI
-also exposes search, status, sort, and Active/Dismissed/All visibility filters,
-individual **Dismiss** and **Restore** actions, and **Clear succeeded**. The
+also exposes search, status, sort, and Active/Archived/All visibility filters,
+plus individual **Archive** and **Restore** actions. It deliberately provides
+no bulk clear action. The
 tracker uses a dense desktop table and changes to compact cards on narrow
 viewports; each row can expand to show the request description and attachment
 names. Each row
 summarizes the strongest release evidence available, preferring production and
 then staging, and includes the deployed application version when Handrail has
 recorded one. Missing release tracking or environment targets display
-**Deployment status unavailable** rather than **Not deployed**. Dismissal only
+**Deployment status unavailable** rather than **Not deployed**. Archiving only
 changes that principal's history presentation; it never deletes, cancels, or
 changes the linked Work Request. Set `historyPageSize` on
 `EnhancementReporterDialog` to use another page size from 1 through 50.
 
-The SDK does not impose a history screen on app-owned integrations. `list` returns exact summary counts for a tab badge and status filters, plus the server-normalized query. Apps can style Active and Dismissed views independently, restore individual requests, or clear all succeeded requests while preserving every canonical Work Request.
+The SDK does not impose a history screen on app-owned integrations. `list` returns exact summary counts for a tab badge and status filters, plus the server-normalized query. Apps can style Active and Archived views independently and restore individual requests while preserving every canonical Work Request. The wire-level visibility value remains `dismissed` for compatibility.
 
 ## Custom/headless browser API
 

@@ -588,7 +588,7 @@ function HistoryRow({
   expanded,
   onToggle,
   canRestore,
-  onDismiss,
+  onArchive,
   onRestore,
 }: {
   readonly request: EnhancementRequestRecord;
@@ -596,7 +596,7 @@ function HistoryRow({
   readonly expanded: boolean;
   readonly onToggle: (requestId: string) => void;
   readonly canRestore: boolean;
-  readonly onDismiss: (requestId: string) => Promise<void>;
+  readonly onArchive: (requestId: string) => Promise<void>;
   readonly onRestore: (requestId: string) => Promise<void>;
 }): ReactElement {
   const release = enhancementReleaseSummary(request);
@@ -615,7 +615,7 @@ function HistoryRow({
       <button type="button" aria-expanded={expanded} aria-label={`View ${request.title}`} onClick={() => onToggle(request.id)} style={{ border: 0, padding: "6px 2px", color: "var(--handrail-enhancement-accent)", background: "transparent", cursor: "pointer", font: "inherit", fontSize: 12, fontWeight: 800 }}>View</button>
       {request.dismissed && canRestore
         ? <button type="button" aria-label={`Restore ${request.title}`} disabled={busy} onClick={() => void onRestore(request.id)} style={{ border: 0, padding: "6px 2px", color: "var(--handrail-enhancement-accent)", background: "transparent", cursor: busy ? "wait" : "pointer", font: "inherit", fontSize: 12, fontWeight: 800 }}>{busy ? "Restoring…" : "Restore"}</button>
-        : !request.dismissed && <button type="button" aria-label={`Dismiss ${request.title}`} disabled={busy} onClick={() => void onDismiss(request.id)} style={{ border: 0, padding: "6px 2px", color: "var(--handrail-enhancement-accent)", background: "transparent", cursor: busy ? "wait" : "pointer", font: "inherit", fontSize: 12, fontWeight: 800 }}>{busy ? "Dismissing…" : "Dismiss"}</button>}
+        : !request.dismissed && <button type="button" aria-label={`Archive ${request.title}`} disabled={busy} onClick={() => void onArchive(request.id)} style={{ border: 0, padding: "6px 2px", color: "var(--handrail-enhancement-accent)", background: "transparent", cursor: busy ? "wait" : "pointer", font: "inherit", fontSize: 12, fontWeight: 800 }}>{busy ? "Archiving…" : "Archive"}</button>}
     </div>
     {expanded && <div role="cell" data-handrail-enhancement-history-detail="true" style={{ gridColumn: "1 / -1", display: "grid", gap: 10, padding: "10px 12px", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, color: "var(--handrail-enhancement-muted-text)", background: "var(--handrail-enhancement-surface-muted)", fontSize: 11 }}>
       <span><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Request details</strong>{request.description || "No additional description is available."}</span>
@@ -929,7 +929,7 @@ export function EnhancementReporterDialog({
     }
   };
 
-  const dismissRequest = async (requestId: string) => {
+  const archiveRequest = async (requestId: string) => {
     setBusyHistoryId(requestId);
     setError(null);
     try {
@@ -945,7 +945,7 @@ export function EnhancementReporterDialog({
     } catch (caught) {
       setError(caught instanceof Error
         ? caught.message
-        : "Could not dismiss the enhancement request.");
+        : "Could not archive the enhancement request.");
     } finally {
       setBusyHistoryId(null);
     }
@@ -968,28 +968,6 @@ export function EnhancementReporterDialog({
       setError(caught instanceof Error
         ? caught.message
         : "Could not restore the enhancement request.");
-    } finally {
-      setBusyHistoryId(null);
-    }
-  };
-
-  const clearSucceeded = async () => {
-    setBusyHistoryId("__succeeded__");
-    setError(null);
-    try {
-      const result = await client.dismissSucceeded();
-      if (historyVisibility === "active") {
-        setHistory((current) => current.filter(
-          (request) => request.status_group !== "succeeded",
-        ));
-        setHistoryTotal((current) => Math.max(0, current - result.dismissed_count));
-      } else {
-        await loadHistory(0);
-      }
-    } catch (caught) {
-      setError(caught instanceof Error
-        ? caught.message
-        : "Could not clear succeeded enhancement requests.");
     } finally {
       setBusyHistoryId(null);
     }
@@ -1097,11 +1075,8 @@ export function EnhancementReporterDialog({
           disabled={loadingHistory || busyHistoryId !== null}
           onClick={() => chooseHistoryVisibility(visibility)}
           style={{ ...styles.tab, flex: "0 0 auto", minHeight: 32, padding: "5px 12px", ...(historyVisibility === visibility ? styles.selectedControl : {}) }}
-        >{visibility === "dismissed" ? "Dismissed" : displayLabel(visibility)}</button>)}
+        >{visibility === "dismissed" ? "Archived" : displayLabel(visibility)}</button>)}
       </div>}
-      {historyCapabilities?.dismiss_succeeded && (historySummary?.succeeded ?? 0) > 0 && <button type="button" disabled={busyHistoryId !== null} onClick={() => void clearSucceeded()} style={{ ...buttonStyle("secondary"), minHeight: 30, padding: "4px 3px", border: 0, color: "var(--handrail-enhancement-accent)", background: "transparent" }}>
-        {busyHistoryId === "__succeeded__" ? "Clearing…" : `Clear succeeded (${historySummary?.succeeded ?? 0})`}
-      </button>}
     </div>
 
     {(historyCapabilities?.search || historyCapabilities?.status_groups.length || historyCapabilities?.sorts.length) && <div style={styles.historyControls}>
@@ -1126,7 +1101,7 @@ export function EnhancementReporterDialog({
       >{status ? displayLabel(status) : "All"} <span style={{ opacity: 0.75 }}>{historyCountFor(status)}</span></button>)}
     </div>}
     <div style={{ marginBottom: 8, color: "var(--handrail-enhancement-muted-text)", fontSize: 10 }}>
-      Dismiss and Clear succeeded only hide requests from your list; they do not cancel or delete the canonical request or linked Work Request.
+      Archive only hides a request from your list; it does not cancel or delete the canonical request or linked Work Request.
     </div>
   </form>;
 
@@ -1277,7 +1252,7 @@ export function EnhancementReporterDialog({
               expanded={expandedRequestId === request.id}
               onToggle={(requestId) => setExpandedRequestId((current) => current === requestId ? null : requestId)}
               canRestore={historyCapabilities?.restore === true}
-              onDismiss={dismissRequest}
+              onArchive={archiveRequest}
               onRestore={restoreRequest}
             />)}
           </div>}
