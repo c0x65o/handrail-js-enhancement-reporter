@@ -138,8 +138,9 @@ Available tokens are `accent`, `accentText`, `surface`, `surfaceMuted`, `text`,
 targets the dialog and `appearance.style` targets the overlay, so an
 application can add narrowly scoped, type-safe CSS-variable overrides. Direct
 variables in `appearance.style` take precedence over `appearance.tokens`.
-Launcher `className` and
-`style` props remain separate.
+The built-in launcher installs the configured tokens on itself, so its default
+primary treatment matches the dialog. Launcher `className` and `style` props
+remain separate and still replace that default treatment when supplied.
 
 The dialog is viewport-bounded at 1560 × 960 px and scrolls internally on
 smaller screens. It

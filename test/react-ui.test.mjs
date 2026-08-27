@@ -48,6 +48,8 @@ test("the packaged UI is opt-in and the launcher mounts a separate themed dialog
   assert.equal(renderer.root.findAllByProps({ role: "dialog" }).length, 0);
   const launcher = renderer.root.findByProps({ "aria-haspopup": "dialog" });
   assert.equal(launcher.props["aria-expanded"], false);
+  assert.equal(launcher.props.style["--handrail-enhancement-accent"], "light-dark(#2563eb, #78a9ff)");
+  assert.equal(launcher.props.style.background, "var(--handrail-enhancement-accent)");
 
   await act(async () => launcher.props.onClick());
   assert.equal(renderer.root.findByProps({ "aria-haspopup": "dialog" }).props["aria-expanded"], true);
@@ -55,7 +57,9 @@ test("the packaged UI is opt-in and the launcher mounts a separate themed dialog
   assert.equal(overlay.props["data-theme"], "auto");
   assert.equal(overlay.props.style.colorScheme, "inherit");
   assert.equal(overlay.props.style["--handrail-enhancement-accent"], "light-dark(#2563eb, #78a9ff)");
-  assert.equal(overlay.props.style["--handrail-enhancement-radius"], "16px");
+  assert.equal(overlay.props.style["--handrail-enhancement-radius"], "12px");
+  assert.equal(overlay.props.style["--handrail-enhancement-warning-text"], "light-dark(#b54708, #fbc46d)");
+  assert.equal(overlay.props.style["--handrail-enhancement-info-text"], "light-dark(#175cd3, #a7c7ff)");
   assert.equal(overlay.props.style["--handrail-enhancement-font-family"], '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif');
   assert.equal(overlay.props.style.backdropFilter, "blur(3px)");
   await act(async () => renderer.root.findByProps({ "aria-label": "Close enhancement reporter" }).props.onClick());
@@ -95,20 +99,20 @@ test("appearance, responsive dialog semantics, focus containment, Escape, overla
         open: true,
         onClose: () => { closed += 1; },
         client: client(),
-        appearance: { themeMode: "dark", tokens: { accent: "#ff00aa", radius: "4px" } },
+        appearance: { themeMode: "dark", tokens: { accent: "#ff00aa", radius: "4px" }, style: { "--handrail-enhancement-accent": "#b93815" } },
       }), { createNodeMock: (element) => element.type === "section" ? dialogNode : new MockElement(String(element.type)) });
     });
     const overlay = renderer.root.findByProps({ "data-handrail-enhancement-reporter": "overlay" });
     assert.equal(overlay.props["data-theme"], "dark");
-    assert.equal(overlay.props.style["--handrail-enhancement-accent"], "#ff00aa");
+    assert.equal(overlay.props.style["--handrail-enhancement-accent"], "#b93815");
     assert.equal(overlay.props.style["--handrail-enhancement-radius"], "4px");
     assert.equal(overlay.props.style.colorScheme, "dark");
     const dialog = renderer.root.findByProps({ role: "dialog" });
     assert.equal(dialog.props["aria-modal"], "true");
     assert.ok(dialog.props["aria-labelledby"]);
     assert.ok(dialog.props["aria-describedby"]);
-    assert.equal(dialog.props.style.width, "min(1280px, calc(100vw - 40px))");
-    assert.equal(dialog.props.style.height, "min(900px, calc(100dvh - 40px))");
+    assert.equal(dialog.props.style.width, "min(1560px, calc(100vw - 24px))");
+    assert.equal(dialog.props.style.height, "min(960px, calc(100dvh - 16px))");
     assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-report-layout": "true" }).length, 1);
     assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-context": "true" }).length, 1);
     assert.match(JSON.stringify(renderer.toJSON()), /Attached context/);
@@ -248,16 +252,16 @@ test("Default Known Users receive capability-driven history without automation a
 
   await act(async () => {
     renderer.root.findByProps({ "aria-label": "Search my requests" }).props.onChange({ target: { value: "filters" } });
-    renderer.root.findByProps({ "aria-label": "Enhancement status" }).props.onChange({ target: { value: "succeeded" } });
+    renderer.root.findByProps({ "aria-label": "Enhancement status" }).findAllByType("button")[1].props.onClick();
     renderer.root.findByProps({ "aria-label": "Enhancement sort order" }).props.onChange({ target: { value: "newest" } });
-    renderer.root.findByProps({ "aria-label": "Enhancement visibility" }).props.onChange({ target: { value: "all" } });
+    renderer.root.findByProps({ "aria-label": "Enhancement visibility" }).findAllByType("button")[2].props.onClick();
   });
   const historyForm = renderer.root.findAllByType("form")[0];
   await act(async () => historyForm.props.onSubmit({ preventDefault() {} }));
   assert.deepEqual(listCalls.at(-1), { limit: 10, offset: 0, search: "filters", statusGroup: "succeeded", sort: "newest", visibility: "all" });
   await act(async () => renderer.root.findByProps({ "aria-label": "Restore Saved filters" }).props.onClick());
   assert.deepEqual(restoreCalls, ["enh-1"]);
-  await act(async () => renderer.root.find((node) => node.type === "button" && node.children?.includes("Clear succeeded")).props.onClick());
+  await act(async () => renderer.root.find((node) => node.type === "button" && node.children?.some((child) => typeof child === "string" && child.startsWith("Clear succeeded"))).props.onClick());
   assert.equal(clearCalls, 1);
   await act(async () => renderer.unmount());
 });

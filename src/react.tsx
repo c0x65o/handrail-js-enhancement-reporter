@@ -13,7 +13,9 @@ export {
 export type {
   EnhancementReporterAppearance,
   EnhancementReporterButtonProps,
+  EnhancementReporterCssVariable,
   EnhancementReporterDialogProps,
+  EnhancementReporterStyle,
   EnhancementReporterThemeMode,
   EnhancementReporterThemeTokens,
 } from "./react-ui";

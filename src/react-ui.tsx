@@ -247,6 +247,7 @@ function policyCells(value: unknown): EnhancementPolicyCells {
 
 function appearanceVariables(
   appearance: EnhancementReporterAppearance | undefined,
+  includeIntegrationStyle = true,
 ): UiVariables {
   const mode = appearance?.themeMode || "auto";
   const base = mode === "dark"
@@ -275,7 +276,7 @@ function appearanceVariables(
     "--handrail-enhancement-radius": tokens.radius,
     "--handrail-enhancement-font-family": tokens.fontFamily,
     colorScheme: mode === "auto" ? "inherit" : mode,
-    ...appearance?.style,
+    ...(includeIntegrationStyle ? appearance?.style : undefined),
   };
 }
 
@@ -347,12 +348,12 @@ const styles: Record<string, CSSProperties> = {
   },
   tab: {
     flex: 1,
-    border: "1px solid transparent",
+    border: "1px solid var(--handrail-enhancement-border)",
     borderRadius: 8,
     padding: "7px 12px",
     cursor: "pointer",
     color: "var(--handrail-enhancement-muted-text)",
-    background: "transparent",
+    background: "var(--handrail-enhancement-surface)",
     font: "inherit",
     fontWeight: 700,
     minHeight: 36,
@@ -1053,8 +1054,7 @@ export function EnhancementReporterDialog({
   };
   const chooseHistoryVisibility = (next: EnhancementHistoryVisibility) => {
     setHistoryVisibility(next);
-    setHistoryStatus("");
-    void loadHistory(0, { ...currentHistoryQuery(), visibility: next, statusGroup: undefined });
+    void loadHistory(0, { ...currentHistoryQuery(), visibility: next });
   };
   const chooseHistoryStatus = (next: EnhancementHistoryStatusGroup | "") => {
     setHistoryStatus(next);
@@ -1262,7 +1262,7 @@ export function EnhancementReporterDialog({
           {historyForm}
           {loadingHistory && history.length === 0 && <div role="status">Loading your enhancement requests…</div>}
           {!loadingHistory && history.length === 0 && !error && <div role="status" style={{ color: "var(--handrail-enhancement-muted-text)" }}>No enhancement requests match these filters.</div>}
-          {history.length > 0 && <div role="table" aria-label="Enhancement requests" data-handrail-enhancement-history-list="true" style={styles.historyList}>
+          {history.length > 0 && <div role="table" aria-label="Enhancement requests" data-handrail-enhancement-history-list="true" style={{ ...styles.historyList, flex: "1 1 auto" }}>
             <div role="row" data-handrail-enhancement-history-header="true" style={styles.historyListHeader}>
               <span role="columnheader">Request</span><span role="columnheader">Submitted</span><span role="columnheader">Work request</span><span role="columnheader">Status</span><span role="columnheader">Release</span><span role="columnheader">Action</span>
             </div>
@@ -1278,9 +1278,12 @@ export function EnhancementReporterDialog({
             />)}
           </div>}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 9, flexWrap: "wrap", margin: "auto -20px -12px", padding: "9px 20px", borderTop: "1px solid var(--handrail-enhancement-border)" }}>
-            {historyHasMore && <button type="button" disabled={loadingHistory} onClick={() => void loadHistory(history.length)} style={buttonStyle("secondary")}>{loadingHistory ? "Loading…" : "Show more"}</button>}
-            {historyTotal > 0 && <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{history.length} of {historyTotal}</span>}
-            {historySummary && <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{historySummary.succeeded} succeeded · {historySummary.in_progress} in progress · {historySummary.needs_attention} needing attention</span>}
+            <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>Showing {history.length} of {historyTotal} request{historyTotal === 1 ? "" : "s"}</span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+              {historySummary && <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 10 }}>{historySummary.succeeded} succeeded · {historySummary.in_progress} in progress · {historySummary.needs_attention} need attention</span>}
+              {historyHasMore && <button type="button" disabled={loadingHistory} onClick={() => void loadHistory(history.length)} style={buttonStyle("secondary")}>{loadingHistory ? "Loading…" : "Show more"}</button>}
+              <button type="button" onClick={closeDialog} style={buttonStyle("primary")}>Close</button>
+            </div>
           </div>
         </div>}
       </div>
@@ -1299,7 +1302,7 @@ export function EnhancementReporterButton({
     <button
       type="button"
       className={className}
-      style={style || buttonStyle("primary")}
+      style={style || { ...appearanceVariables(dialogProps.appearance, false), ...buttonStyle("primary") }}
       aria-haspopup="dialog"
       aria-expanded={open}
       onClick={() => setOpen(true)}
