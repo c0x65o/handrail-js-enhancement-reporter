@@ -46,9 +46,36 @@ export interface EnhancementReporterThemeTokens {
   readonly dangerText: string;
   readonly successSurface: string;
   readonly successText: string;
+  readonly warningSurface: string;
+  readonly warningText: string;
+  readonly infoSurface: string;
+  readonly infoText: string;
   readonly radius: string;
   readonly fontFamily: string;
 }
+
+export type EnhancementReporterCssVariable =
+  | "--handrail-enhancement-accent"
+  | "--handrail-enhancement-accent-text"
+  | "--handrail-enhancement-surface"
+  | "--handrail-enhancement-surface-muted"
+  | "--handrail-enhancement-text"
+  | "--handrail-enhancement-muted-text"
+  | "--handrail-enhancement-border"
+  | "--handrail-enhancement-overlay"
+  | "--handrail-enhancement-danger-surface"
+  | "--handrail-enhancement-danger-text"
+  | "--handrail-enhancement-success-surface"
+  | "--handrail-enhancement-success-text"
+  | "--handrail-enhancement-warning-surface"
+  | "--handrail-enhancement-warning-text"
+  | "--handrail-enhancement-info-surface"
+  | "--handrail-enhancement-info-text"
+  | "--handrail-enhancement-radius"
+  | "--handrail-enhancement-font-family";
+
+export type EnhancementReporterStyle = CSSProperties
+  & Partial<Record<EnhancementReporterCssVariable, string | number>>;
 
 export interface EnhancementReporterAppearance {
   /** Defaults to auto, following the host color scheme with polished SDK defaults. */
@@ -58,7 +85,7 @@ export interface EnhancementReporterAppearance {
   /** Applied to the dialog element. */
   readonly className?: string;
   /** Applied to the overlay alongside scoped design-token variables. */
-  readonly style?: CSSProperties;
+  readonly style?: EnhancementReporterStyle;
 }
 
 export interface EnhancementReporterDialogProps {
@@ -91,10 +118,18 @@ interface EnhancementPolicyCells {
   readonly run_work_request: "pending" | "ask" | "always";
 }
 
-type UiVariables = CSSProperties & Record<`--handrail-enhancement-${string}`, string>;
+type UiVariables = EnhancementReporterStyle;
 type DialogTab = "new" | "history";
 
 const RESPONSIVE_DIALOG_CSS = `
+[data-handrail-enhancement-reporter-dialog="true"] button {
+  appearance: none;
+  -webkit-appearance: none;
+}
+[data-handrail-enhancement-reporter-dialog="true"] :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--handrail-enhancement-accent) !important;
+  outline-offset: 2px;
+}
 @media (max-width: 860px) {
   [data-handrail-enhancement-report-layout="true"] { grid-template-columns: minmax(0, 1fr) !important; }
   [data-handrail-enhancement-context="true"] { order: -1; }
@@ -140,7 +175,11 @@ const LIGHT_TOKENS: EnhancementReporterThemeTokens = Object.freeze({
   dangerText: "#b42318",
   successSurface: "#ecfdf3",
   successText: "#027a48",
-  radius: "16px",
+  warningSurface: "#fff8eb",
+  warningText: "#b54708",
+  infoSurface: "#eff6ff",
+  infoText: "#175cd3",
+  radius: "12px",
   fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
 });
 
@@ -157,7 +196,11 @@ const DARK_TOKENS: EnhancementReporterThemeTokens = Object.freeze({
   dangerText: "#ffb4b8",
   successSurface: "#173326",
   successText: "#95ddb7",
-  radius: "16px",
+  warningSurface: "#3b2d16",
+  warningText: "#fbc46d",
+  infoSurface: "#172d4d",
+  infoText: "#a7c7ff",
+  radius: "12px",
   fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
 });
 
@@ -174,7 +217,11 @@ const AUTO_TOKENS: EnhancementReporterThemeTokens = Object.freeze({
   dangerText: "light-dark(#b42318, #ffb4b8)",
   successSurface: "light-dark(#ecfdf3, #173326)",
   successText: "light-dark(#027a48, #95ddb7)",
-  radius: "16px",
+  warningSurface: "light-dark(#fff8eb, #3b2d16)",
+  warningText: "light-dark(#b54708, #fbc46d)",
+  infoSurface: "light-dark(#eff6ff, #172d4d)",
+  infoText: "light-dark(#175cd3, #a7c7ff)",
+  radius: "12px",
   fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
 });
 
@@ -221,6 +268,10 @@ function appearanceVariables(
     "--handrail-enhancement-danger-text": tokens.dangerText,
     "--handrail-enhancement-success-surface": tokens.successSurface,
     "--handrail-enhancement-success-text": tokens.successText,
+    "--handrail-enhancement-warning-surface": tokens.warningSurface,
+    "--handrail-enhancement-warning-text": tokens.warningText,
+    "--handrail-enhancement-info-surface": tokens.infoSurface,
+    "--handrail-enhancement-info-text": tokens.infoText,
     "--handrail-enhancement-radius": tokens.radius,
     "--handrail-enhancement-font-family": tokens.fontFamily,
     colorScheme: mode === "auto" ? "inherit" : mode,
@@ -247,16 +298,17 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: 16,
+    padding: 8,
     background: "var(--handrail-enhancement-overlay)",
     backdropFilter: "blur(3px)",
   },
   dialog: {
     display: "flex",
     flexDirection: "column",
-    width: "min(1280px, calc(100vw - 40px))",
-    height: "min(900px, calc(100dvh - 40px))",
-    maxHeight: "calc(100vh - 40px)",
+    width: "min(1560px, calc(100vw - 24px))",
+    height: "min(960px, calc(100dvh - 16px))",
+    maxHeight: "calc(100vh - 16px)",
+    boxSizing: "border-box",
     overflow: "hidden",
     border: "1px solid var(--handrail-enhancement-border)",
     borderRadius: "var(--handrail-enhancement-radius)",
@@ -264,8 +316,8 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--handrail-enhancement-text)",
     boxShadow: "0 30px 90px rgba(0, 0, 0, 0.34)",
     fontFamily: "var(--handrail-enhancement-font-family)",
-    fontSize: 14,
-    lineHeight: 1.45,
+    fontSize: 13,
+    lineHeight: 1.4,
     isolation: "isolate",
   },
   header: {
@@ -274,46 +326,52 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 16,
-    padding: "18px 24px 16px",
+    padding: "14px 24px 12px",
     borderBottom: "1px solid var(--handrail-enhancement-border)",
   },
   content: {
     flex: 1,
     minHeight: 0,
     overflow: "auto",
-    padding: "16px 20px",
+    padding: "12px 20px",
     background: "var(--handrail-enhancement-surface)",
   },
   tabs: {
     display: "flex",
     gap: 8,
-    padding: 5,
-    marginBottom: 16,
-    border: "1px solid var(--handrail-enhancement-border)",
-    borderRadius: 14,
-    background: "var(--handrail-enhancement-surface-muted)",
+    padding: 0,
+    marginBottom: 12,
+    border: 0,
+    borderRadius: 10,
+    background: "transparent",
   },
   tab: {
     flex: 1,
     border: "1px solid transparent",
-    borderRadius: 10,
-    padding: "8px 14px",
+    borderRadius: 8,
+    padding: "7px 12px",
     cursor: "pointer",
-    color: "inherit",
+    color: "var(--handrail-enhancement-muted-text)",
     background: "transparent",
     font: "inherit",
     fontWeight: 700,
-    minHeight: 38,
+    minHeight: 36,
   },
   activeTab: {
-    borderColor: "var(--handrail-enhancement-border)",
-    background: "var(--handrail-enhancement-surface)",
-    boxShadow: "0 3px 10px rgba(15, 23, 42, 0.08)",
+    borderColor: "var(--handrail-enhancement-accent)",
+    color: "var(--handrail-enhancement-accent-text)",
+    background: "var(--handrail-enhancement-accent)",
+    boxShadow: "0 1px 2px color-mix(in srgb, var(--handrail-enhancement-accent) 24%, transparent)",
+  },
+  selectedControl: {
+    borderColor: "color-mix(in srgb, var(--handrail-enhancement-accent) 32%, var(--handrail-enhancement-border))",
+    color: "var(--handrail-enhancement-accent)",
+    background: "color-mix(in srgb, var(--handrail-enhancement-accent) 8%, var(--handrail-enhancement-surface))",
   },
   label: {
     display: "grid",
-    gap: 7,
-    marginBottom: 12,
+    gap: 5,
+    marginBottom: 9,
     color: "inherit",
     fontSize: 13,
     fontWeight: 700,
@@ -322,19 +380,19 @@ const styles: Record<string, CSSProperties> = {
     width: "100%",
     boxSizing: "border-box",
     border: "1px solid var(--handrail-enhancement-border)",
-    borderRadius: 11,
-    padding: "9px 12px",
+    borderRadius: 8,
+    padding: "7px 10px",
     color: "inherit",
     background: "var(--handrail-enhancement-surface)",
     font: "inherit",
-    minHeight: 40,
+    minHeight: 36,
     outlineOffset: 2,
   },
   fieldset: {
-    margin: "12px 0 0",
-    padding: 12,
+    margin: "9px 0 0",
+    padding: 10,
     border: "1px solid var(--handrail-enhancement-border)",
-    borderRadius: 11,
+    borderRadius: 9,
   },
   checkboxLabel: {
     display: "flex",
@@ -347,8 +405,8 @@ const styles: Record<string, CSSProperties> = {
   },
   drop: {
     border: "1px dashed var(--handrail-enhancement-border)",
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 9,
+    padding: 10,
     background: "var(--handrail-enhancement-surface-muted)",
     fontSize: 13,
     color: "var(--handrail-enhancement-muted-text)",
@@ -356,8 +414,8 @@ const styles: Record<string, CSSProperties> = {
   imageGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-    gap: 10,
-    marginTop: 12,
+    gap: 8,
+    marginTop: 9,
   },
   imageCard: {
     position: "relative",
@@ -369,27 +427,28 @@ const styles: Record<string, CSSProperties> = {
   },
   button: {
     border: "1px solid transparent",
-    borderRadius: 10,
-    padding: "8px 14px",
+    borderRadius: 8,
+    padding: "6px 12px",
     cursor: "pointer",
     font: "inherit",
     fontWeight: 700,
-    minHeight: 38,
+    minHeight: 34,
     outlineOffset: 2,
   },
-  status: { marginBottom: 14, borderRadius: 11, padding: "11px 14px", fontSize: 13 },
+  status: { marginBottom: 10, borderRadius: 8, padding: "9px 12px", fontSize: 12 },
   historyControls: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))",
-    gap: 10,
-    marginBottom: 14,
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
   },
   historyItem: {
     display: "grid",
-    gridTemplateColumns: "minmax(240px, 2.2fr) minmax(100px, .8fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(120px, .8fr) 112px",
+    gridTemplateColumns: "minmax(220px, 2.2fr) minmax(90px, .72fr) minmax(120px, .9fr) minmax(150px, 1.1fr) minmax(115px, .8fr) 126px",
     alignItems: "center",
-    gap: 12,
-    padding: "12px 14px",
+    gap: 10,
+    padding: "8px 12px",
     borderBottom: "1px solid var(--handrail-enhancement-border)",
     background: "var(--handrail-enhancement-surface)",
   },
@@ -397,14 +456,14 @@ const styles: Record<string, CSSProperties> = {
     minHeight: 0,
     overflow: "hidden auto",
     border: "1px solid var(--handrail-enhancement-border)",
-    borderRadius: 14,
+    borderRadius: 10,
     background: "var(--handrail-enhancement-surface-muted)",
   },
   historyListHeader: {
     display: "grid",
-    gridTemplateColumns: "minmax(240px, 2.2fr) minmax(100px, .8fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(120px, .8fr) 112px",
-    gap: 12,
-    padding: "9px 14px",
+    gridTemplateColumns: "minmax(220px, 2.2fr) minmax(90px, .72fr) minmax(120px, .9fr) minmax(150px, 1.1fr) minmax(115px, .8fr) 126px",
+    gap: 10,
+    padding: "7px 12px",
     color: "var(--handrail-enhancement-muted-text)",
     fontSize: 11,
     fontWeight: 800,
@@ -419,8 +478,8 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: "flex-end",
     gap: 9,
     flexWrap: "wrap",
-    margin: "16px -20px -16px",
-    padding: "12px 20px",
+    margin: "12px -20px -12px",
+    padding: "9px 20px",
     borderTop: "1px solid var(--handrail-enhancement-border)",
     background: "var(--handrail-enhancement-surface)",
   },
@@ -448,6 +507,43 @@ function requestDate(value: string | undefined): string {
   return Number.isNaN(date.valueOf())
     ? "—"
     : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+}
+
+function enhancementStatusStyle(group: EnhancementHistoryStatusGroup): CSSProperties {
+  if (group === "needs_attention") {
+    return {
+      color: "var(--handrail-enhancement-danger-text)",
+      borderColor: "color-mix(in srgb, var(--handrail-enhancement-danger-text) 28%, transparent)",
+      background: "var(--handrail-enhancement-danger-surface)",
+    };
+  }
+  if (group === "succeeded") {
+    return {
+      color: "var(--handrail-enhancement-success-text)",
+      borderColor: "color-mix(in srgb, var(--handrail-enhancement-success-text) 28%, transparent)",
+      background: "var(--handrail-enhancement-success-surface)",
+    };
+  }
+  if (group === "in_progress") {
+    return {
+      color: "var(--handrail-enhancement-info-text)",
+      borderColor: "color-mix(in srgb, var(--handrail-enhancement-info-text) 28%, transparent)",
+      background: "var(--handrail-enhancement-info-surface)",
+    };
+  }
+  return {
+    color: "var(--handrail-enhancement-muted-text)",
+    borderColor: "var(--handrail-enhancement-border)",
+    background: "var(--handrail-enhancement-surface-muted)",
+  };
+}
+
+function releaseStyle(state: ReturnType<typeof enhancementReleaseSummary>["state"]): CSSProperties {
+  if (state === "deployed") return { color: "var(--handrail-enhancement-success-text)" };
+  if (state === "partially_deployed" || state === "not_deployed") {
+    return { color: "var(--handrail-enhancement-warning-text)" };
+  }
+  return { color: "var(--handrail-enhancement-muted-text)" };
 }
 
 function selectedFile(
@@ -507,9 +603,9 @@ function HistoryRow({
     <span role="cell" data-handrail-enhancement-history-cell="secondary" style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>{requestDate(request.created_at)}</span>
     <span role="cell" data-handrail-enhancement-history-cell="secondary" style={{ overflow: "hidden", color: "var(--handrail-enhancement-muted-text)", fontSize: 12, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{request.linked_work_request?.id || "Pending review"}</span>
     <div role="cell" data-handrail-enhancement-history-cell="status">
-      <span style={{ display: "inline-block", padding: "4px 9px", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 999, color: request.status_group === "needs_attention" ? "var(--handrail-enhancement-danger-text)" : request.status_group === "succeeded" ? "var(--handrail-enhancement-success-text)" : "var(--handrail-enhancement-accent)", background: request.status_group === "needs_attention" ? "var(--handrail-enhancement-danger-surface)" : request.status_group === "succeeded" ? "var(--handrail-enhancement-success-surface)" : "var(--handrail-enhancement-surface-muted)", fontSize: 11, fontWeight: 800 }}>{displayLabel(request.status)}</span>
+      <span style={{ display: "inline-block", overflow: "hidden", maxWidth: "100%", padding: "3px 8px", border: "1px solid", borderRadius: 999, textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 10, fontWeight: 800, ...enhancementStatusStyle(request.status_group) }}>{displayLabel(request.status)}</span>
     </div>
-    <span role="cell" data-handrail-enhancement-history-cell="secondary" style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{release.label}</span>
+    <span role="cell" data-handrail-enhancement-history-cell="secondary" style={{ fontSize: 11, ...releaseStyle(release.state) }}>{release.label}</span>
     <div role="cell" data-handrail-enhancement-history-cell="action" style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
       <button type="button" aria-expanded={expanded} aria-label={`View ${request.title}`} onClick={() => onToggle(request.id)} style={{ border: 0, padding: "6px 2px", color: "var(--handrail-enhancement-accent)", background: "transparent", cursor: "pointer", font: "inherit", fontSize: 12, fontWeight: 800 }}>View</button>
       {request.dismissed && canRestore
@@ -559,6 +655,7 @@ export function EnhancementReporterDialog({
   const [historyStatus, setHistoryStatus] = useState<EnhancementHistoryStatusGroup | "">("");
   const [historySort, setHistorySort] = useState<EnhancementHistorySort>("newest");
   const [historyVisibility, setHistoryVisibility] = useState<EnhancementHistoryVisibility>("active");
+  const [historyFiltersVisible, setHistoryFiltersVisible] = useState(true);
   const [policy, setPolicy] = useState<EnhancementPolicyCells>(PENDING_POLICY);
   const [automationRequests, setAutomationRequests] = useState({
     run_work_request: false,
@@ -572,6 +669,7 @@ export function EnhancementReporterDialog({
   const [submitted, setSubmitted] = useState<EnhancementRequestRecord | null>(null);
   const [notificationNotice, setNotificationNotice] = useState<string | null>(null);
   const previewUrls = useRef(new Set<string>());
+  const historySearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyLoadedRef = useRef(false);
   const dialogRef = useRef<HTMLElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -623,6 +721,7 @@ export function EnhancementReporterDialog({
   }, [client, currentHistoryQuery, pageSize]);
 
   useEffect(() => () => {
+    if (historySearchTimerRef.current !== null) clearTimeout(historySearchTimerRef.current);
     for (const url of previewUrls.current) {
       if (typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
         URL.revokeObjectURL(url);
