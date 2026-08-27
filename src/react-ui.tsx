@@ -134,9 +134,7 @@ const RESPONSIVE_DIALOG_CSS = `
   outline: 2px solid var(--handrail-enhancement-accent) !important;
   outline-offset: 2px;
 }
-@media (max-width: 860px) {
-  [data-handrail-enhancement-report-layout="true"] { grid-template-columns: minmax(0, 1fr) !important; }
-  [data-handrail-enhancement-context="true"] { order: -1; }
+@media (max-width: 1100px) {
   [data-handrail-enhancement-history-header="true"] { display: none !important; }
   [data-handrail-enhancement-history-row="true"] {
     grid-template-columns: minmax(0, 1fr) auto !important;
@@ -146,6 +144,10 @@ const RESPONSIVE_DIALOG_CSS = `
   [data-handrail-enhancement-history-cell="secondary"] { display: none !important; }
   [data-handrail-enhancement-history-cell="status"] { grid-column: 1; }
   [data-handrail-enhancement-history-cell="action"] { grid-column: 2; grid-row: 1 / span 2; }
+}
+@media (max-width: 860px) {
+  [data-handrail-enhancement-report-layout="true"] { grid-template-columns: minmax(0, 1fr) !important; }
+  [data-handrail-enhancement-context="true"] { order: -1; }
 }
 @media (max-width: 560px) {
   [data-handrail-enhancement-reporter="overlay"] { padding: 0 !important; }
@@ -157,7 +159,9 @@ const RESPONSIVE_DIALOG_CSS = `
     border-radius: 0 !important;
   }
   [data-handrail-enhancement-header="true"] { padding: 16px 18px 14px !important; }
-  [data-handrail-enhancement-content="true"] { padding: 12px 14px !important; }
+  [data-handrail-enhancement-content="new"] { padding: 12px 14px !important; }
+  [data-handrail-enhancement-content="history"] { padding: 12px 14px 0 !important; }
+  [data-handrail-enhancement-history-list="true"] { min-height: 150px !important; }
   [data-handrail-enhancement-tabs="true"] { margin-bottom: 14px !important; }
 }
 `;
@@ -311,7 +315,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     width: "min(1560px, calc(100vw - 24px))",
-    height: "min(960px, calc(100dvh - 16px))",
+    height: "auto",
     maxHeight: "calc(100vh - 16px)",
     boxSizing: "border-box",
     overflow: "hidden",
@@ -325,6 +329,9 @@ const styles: Record<string, CSSProperties> = {
     lineHeight: 1.4,
     isolation: "isolate",
   },
+  historyDialog: {
+    height: "min(960px, calc(100dvh - 16px))",
+  },
   header: {
     display: "flex",
     flexShrink: 0,
@@ -335,11 +342,18 @@ const styles: Record<string, CSSProperties> = {
     borderBottom: "1px solid var(--handrail-enhancement-border)",
   },
   content: {
+    display: "flex",
+    flexDirection: "column",
     flex: 1,
     minHeight: 0,
     overflow: "auto",
     padding: "12px 20px",
     background: "var(--handrail-enhancement-surface)",
+  },
+  historyContent: {
+    gap: 10,
+    overflow: "hidden",
+    padding: "10px 20px 0",
   },
   tabs: {
     display: "flex",
@@ -474,6 +488,18 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 800,
     letterSpacing: "0.06em",
     textTransform: "uppercase",
+  },
+  historyFooter: {
+    display: "flex",
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 9,
+    flexWrap: "wrap",
+    margin: "auto -20px 0",
+    padding: "9px 20px",
+    borderTop: "1px solid var(--handrail-enhancement-border)",
+    background: "var(--handrail-enhancement-surface)",
   },
   formActions: {
     position: "sticky",
@@ -1124,7 +1150,7 @@ export function EnhancementReporterDialog({
       aria-describedby={descriptionId}
       aria-busy={submitting || discovering}
       tabIndex={-1}
-      style={styles.dialog}
+      style={{ ...styles.dialog, ...(tab === "history" ? styles.historyDialog : {}) }}
       onPaste={onPaste}
       onKeyDown={onDialogKeyDown}
     >
@@ -1138,7 +1164,7 @@ export function EnhancementReporterDialog({
         </div>
         <button type="button" aria-label="Close enhancement reporter" disabled={submitting} onClick={closeDialog} style={{ ...buttonStyle("secondary"), width: 38, minWidth: 38, height: 38, padding: 0, fontSize: 20, lineHeight: 1, opacity: submitting ? 0.65 : 1 }}>×</button>
       </header>
-      <div data-handrail-enhancement-content="true" style={styles.content}>
+      <div data-handrail-enhancement-content={tab} style={{ ...styles.content, ...(tab === "history" ? styles.historyContent : {}) }}>
         {historyAvailable && <div role="tablist" aria-label="Enhancement reporter views" data-handrail-enhancement-tabs="true" style={styles.tabs}>
           <button id={newTabId} type="button" role="tab" aria-controls={newPanelId} aria-selected={tab === "new"} tabIndex={tab === "new" ? 0 : -1} onClick={() => selectTab("new")} onKeyDown={(event) => onTabKeyDown(event, "new")} style={{ ...styles.tab, ...(tab === "new" ? styles.activeTab : {}) }}>New request</button>
           <button id={historyTabId} type="button" role="tab" aria-controls={historyPanelId} aria-selected={tab === "history"} tabIndex={tab === "history" ? 0 : -1} onClick={() => selectTab("history")} onKeyDown={(event) => onTabKeyDown(event, "history")} style={{ ...styles.tab, ...(tab === "history" ? styles.activeTab : {}) }}>My requests{historyTotal > 0 && <span aria-label={`${historyTotal} total`} style={{ display: "inline-grid", placeItems: "center", minWidth: 22, height: 22, marginLeft: 8, padding: "0 6px", borderRadius: 999, color: tab === "history" ? "var(--handrail-enhancement-accent-text)" : "var(--handrail-enhancement-muted-text)", background: tab === "history" ? "color-mix(in srgb, var(--handrail-enhancement-accent-text) 18%, transparent)" : "var(--handrail-enhancement-surface-muted)", fontSize: 11 }}>{historyTotal}</span>}</button>
@@ -1150,7 +1176,7 @@ export function EnhancementReporterDialog({
           {notificationNotice && <> {notificationNotice}</>}
         </div>}
 
-        {tab === "new" ? <div id={newPanelId} role={historyAvailable ? "tabpanel" : undefined} aria-labelledby={historyAvailable ? newTabId : undefined}>
+        {tab === "new" ? <div id={newPanelId} role={historyAvailable ? "tabpanel" : undefined} aria-labelledby={historyAvailable ? newTabId : undefined} style={{ flex: "1 0 auto" }}>
           {discovering && <div role="status" style={{ marginBottom: 12, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>Checking available options…</div>}
           <form onSubmit={(event) => void submit(event)}>
             <span role="status" aria-live="polite" style={styles.visuallyHidden}>
@@ -1237,7 +1263,7 @@ export function EnhancementReporterDialog({
               <button type="submit" disabled={submitting} style={{ ...buttonStyle("primary"), opacity: submitting ? 0.65 : 1 }}>{submitting ? "Submitting…" : "Submit enhancement"}</button>
             </div>
           </form>
-        </div> : <div id={historyPanelId} role="tabpanel" aria-labelledby={historyTabId} style={{ display: "flex", minHeight: 0, flexDirection: "column" }}>
+        </div> : <div id={historyPanelId} role="tabpanel" aria-labelledby={historyTabId} style={{ display: "flex", width: "100%", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
           {historyForm}
           {loadingHistory && history.length === 0 && <div role="status">Loading your enhancement requests…</div>}
           {!loadingHistory && history.length === 0 && !error && <div role="status" style={{ color: "var(--handrail-enhancement-muted-text)" }}>No enhancement requests match these filters.</div>}
@@ -1256,7 +1282,7 @@ export function EnhancementReporterDialog({
               onRestore={restoreRequest}
             />)}
           </div>}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 9, flexWrap: "wrap", margin: "auto -20px -12px", padding: "9px 20px", borderTop: "1px solid var(--handrail-enhancement-border)" }}>
+          <div style={styles.historyFooter}>
             <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>Showing {history.length} of {historyTotal} request{historyTotal === 1 ? "" : "s"}</span>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
               {historySummary && <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 10 }}>{historySummary.succeeded} succeeded · {historySummary.in_progress} in progress · {historySummary.needs_attention} need attention</span>}

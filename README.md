@@ -99,11 +99,13 @@ export function AccountMenu() {
 also exported separately for an app-owned launcher or menu. Both delegate
 discovery, submission, subscriptions, and history mutations to the same client
 provided by `EnhancementReporterProvider` (or to an explicit `client` prop).
-The compact, wide desktop dialog mirrors Handrail's packaged bug reporter: the
-request form and priority selector sit beside an **Attached context** panel,
+The compact, wide desktop dialog mirrors Handrail's packaged bug reporter. The
+request form sizes to its content instead of reserving the full viewport, while
+the priority selector sits beside an **Attached context** panel,
 with notifications and policy-derived automation grouped into the same side
 rail. The context panel shows the current route, page title, application
-version, and viewport values that the client will submit.
+version, and viewport values that the client will submit; no build field is
+shown in the packaged form.
 
 ### Appearance and accessibility
 
@@ -180,9 +182,9 @@ more** for older bounded pages. When discovery advertises them, the packaged UI
 also exposes search, status, sort, and Active/Archived/All visibility filters,
 plus individual **Archive** and **Restore** actions. It deliberately provides
 no bulk clear action. The
-tracker uses a dense desktop table and changes to compact cards on narrow
-viewports; each row can expand to show the request description and attachment
-names. Each row
+tracker uses the available dialog height and changes its dense desktop table to
+compact cards before the six-column layout can overflow; each row can expand to
+show the request description and attachment names. Each row
 summarizes the strongest release evidence available, preferring production and
 then staging, and includes the deployed application version when Handrail has
 recorded one. Missing release tracking or environment targets display

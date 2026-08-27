@@ -138,10 +138,15 @@ test("appearance, responsive dialog semantics, focus containment, Escape, overla
     assert.ok(dialog.props["aria-labelledby"]);
     assert.ok(dialog.props["aria-describedby"]);
     assert.equal(dialog.props.style.width, "min(1560px, calc(100vw - 24px))");
-    assert.equal(dialog.props.style.height, "min(960px, calc(100dvh - 16px))");
+    assert.equal(dialog.props.style.height, "auto");
     assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-report-layout": "true" }).length, 1);
     assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-context": "true" }).length, 1);
-    assert.match(JSON.stringify(renderer.toJSON()), /Attached context/);
+    const renderedDialog = JSON.stringify(renderer.toJSON());
+    assert.match(renderedDialog, /Attached context/);
+    assert.doesNotMatch(renderedDialog, /"Build"/);
+    const responsiveCss = renderer.root.findByType("style").children.join("");
+    assert.match(responsiveCss, /@media \(max-width: 1100px\)/);
+    assert.match(responsiveCss, /data-handrail-enhancement-history-row/);
     assert.equal(fakeDocument.activeElement, first);
     let prevented = false;
     fakeDocument.activeElement = last;
@@ -268,6 +273,8 @@ test("Default Known Users receive capability-driven history without automation a
   await act(async () => tabs[0].props.onKeyDown({ key: "End", preventDefault: () => { prevented = true; } }));
   assert.equal(prevented, true);
   assert.equal(renderer.root.findAllByProps({ role: "tabpanel" }).length, 1);
+  assert.equal(renderer.root.findByProps({ role: "dialog" }).props.style.height, "min(960px, calc(100dvh - 16px))");
+  assert.equal(renderer.root.findByProps({ "data-handrail-enhancement-content": "history" }).props.style.overflow, "hidden");
   assert.equal(renderer.root.findByProps({ role: "table" }).props["aria-label"], "Enhancement requests");
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 1);
   assert.deepEqual(renderer.root.findByProps({ "aria-label": "Enhancement visibility" }).findAllByType("button").map((button) => button.children.join("")), ["Archived", "Active", "All"]);
