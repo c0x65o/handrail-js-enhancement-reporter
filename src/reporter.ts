@@ -111,6 +111,8 @@ export interface EnhancementReporterDiscovery {
     readonly enabled?: boolean;
     readonly user_enabled?: boolean;
     readonly access_level?: string | null;
+    /** Canonical shared Known User role; access_level remains for compatibility. */
+    readonly role?: "requester" | "contributor" | "maintainer" | null;
     readonly history?: EnhancementHistoryCapabilities;
     readonly policy?: unknown;
   };

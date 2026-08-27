@@ -78,7 +78,11 @@ export type EnhancementReporterStyle = CSSProperties
   & Partial<Record<EnhancementReporterCssVariable, string | number>>;
 
 export interface EnhancementReporterAppearance {
-  /** Defaults to auto, following the host color scheme with polished SDK defaults. */
+  /**
+   * Defaults to auto, following the host CSS color scheme with polished SDK defaults.
+   * Apps with their own saved theme should pass the current light/dark value and
+   * re-render when it changes.
+   */
   readonly themeMode?: EnhancementReporterThemeMode;
   /** Overrides individual packaged-UI design tokens without changing behavior. */
   readonly tokens?: Partial<EnhancementReporterThemeTokens>;

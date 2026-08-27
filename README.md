@@ -108,8 +108,13 @@ version, and viewport values that the client will submit.
 ### Appearance and accessibility
 
 `appearance.themeMode` accepts `"auto"` (the default), `"light"`, or `"dark"`.
-Auto mode inherits the host's color scheme and typography. Override individual
-tokens without replacing the UI:
+Auto mode inherits the host's CSS `color-scheme` and typography. Use it when
+the host publishes its active scheme through CSS. If the application stores an
+account-level theme that can differ from the operating-system preference, pass
+the current `"light"` or `"dark"` value and the corresponding product tokens.
+Changing `themeMode` or `tokens` on a later render immediately restyles the
+built-in launcher and open dialog; the provider and headless client do not need
+to be remounted. Override individual tokens without replacing the UI:
 
 ```tsx
 <EnhancementReporterButton

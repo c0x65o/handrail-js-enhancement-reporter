@@ -67,6 +67,32 @@ test("the packaged UI is opt-in and the launcher mounts a separate themed dialog
   await act(async () => renderer.unmount());
 });
 
+test("a controlled host theme can switch the packaged UI from light to dark", async () => {
+  const dialog = (themeMode) => createElement(EnhancementReporterDialog, {
+    open: true,
+    onClose: () => undefined,
+    client: client(),
+    appearance: { themeMode },
+  });
+  let renderer;
+  await act(async () => { renderer = create(dialog("light")); });
+
+  let overlay = renderer.root.findByProps({ "data-handrail-enhancement-reporter": "overlay" });
+  assert.equal(overlay.props["data-theme"], "light");
+  assert.equal(overlay.props.style.colorScheme, "light");
+  assert.equal(overlay.props.style["--handrail-enhancement-accent"], "#2563eb");
+  assert.equal(overlay.props.style["--handrail-enhancement-surface"], "#ffffff");
+
+  await act(async () => { renderer.update(dialog("dark")); });
+  overlay = renderer.root.findByProps({ "data-handrail-enhancement-reporter": "overlay" });
+  assert.equal(overlay.props["data-theme"], "dark");
+  assert.equal(overlay.props.style.colorScheme, "dark");
+  assert.equal(overlay.props.style["--handrail-enhancement-accent"], "#78a9ff");
+  assert.equal(overlay.props.style["--handrail-enhancement-surface"], "#151a23");
+
+  await act(async () => renderer.unmount());
+});
+
 test("appearance, responsive dialog semantics, focus containment, Escape, overlay close, and focus restoration are wired", async () => {
   const originals = {
     document: globalThis.document,
