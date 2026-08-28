@@ -1115,7 +1115,7 @@ export function EnhancementReporterDialog({
       >{status ? displayLabel(status) : "All"} <span style={{ opacity: 0.75 }}>{historyCountFor(status)}</span></button>)}
     </div>}
     <div style={{ marginBottom: 8, color: "var(--handrail-enhancement-muted-text)", fontSize: 10 }}>
-      Archive only hides a request from your list; it does not cancel or delete the canonical request or linked Work Request.
+      Archive only hides a request from your list; it does not cancel or delete the enhancement or any later implementation work.
     </div>
   </form>;
 

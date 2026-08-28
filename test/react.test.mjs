@@ -200,6 +200,7 @@ test("the React dialog preserves My requests compatibility with older enabled-us
 test("history pages on demand, shows deployment versions, and archives without cancellation", async () => {
   const listCalls = [];
   const dismissCalls = [];
+  const dismissedIds = new Set();
   const requests = [
     {
       id: "request-1",
@@ -232,14 +233,16 @@ test("history pages on demand, shows deployment versions, and archives without c
     submit: async () => { throw new Error("not used"); },
     list: async ({ limit, offset = 0 }) => {
       listCalls.push({ limit, offset });
+      const visibleRequests = requests.filter((request) => !dismissedIds.has(request.id));
       return {
         contract_version: "v1",
-        requests: requests.slice(offset, offset + limit),
-        pagination: { limit, offset, total: requests.length, has_more: offset + limit < requests.length },
+        requests: visibleRequests.slice(offset, offset + limit),
+        pagination: { limit, offset, total: visibleRequests.length, has_more: offset + limit < visibleRequests.length },
       };
     },
     dismiss: async (requestId) => {
       dismissCalls.push(requestId);
+      dismissedIds.add(requestId);
       return { contract_version: "v1", request_id: requestId, dismissed_at: "2026-08-13T20:00:00.000Z", underlying_request_preserved: true };
     },
   };

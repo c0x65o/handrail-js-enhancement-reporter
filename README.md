@@ -191,10 +191,10 @@ then staging, and includes the deployed application version when Handrail has
 recorded one. Missing release tracking or environment targets display
 **Deployment status unavailable** rather than **Not deployed**. Archiving only
 changes that principal's history presentation; it never deletes, cancels, or
-changes the linked Work Request. Set `historyPageSize` on
+changes the first-class enhancement or any later linked implementation Work Request. Set `historyPageSize` on
 `EnhancementReporterDialog` to use another page size from 1 through 50.
 
-The SDK does not impose a history screen on app-owned integrations. `list` returns exact summary counts for a tab badge and status filters, plus the server-normalized query. Apps can style Active and Archived views independently and restore individual requests while preserving every canonical Work Request. The wire-level visibility value remains `dismissed` for compatibility.
+The SDK does not impose a history screen on app-owned integrations. `list` returns exact summary counts for a tab badge and status filters, plus the server-normalized query. Apps can style Active and Archived views independently and restore individual requests while preserving every canonical enhancement. The wire-level visibility value remains `dismissed` for compatibility.
 
 ## Custom/headless browser API
 
@@ -245,7 +245,7 @@ function SuggestionForm() {
 }
 ```
 
-`list({ limit, offset, search, statusGroup, sort, visibility })` returns bounded pagination metadata, exact counts for `needs_attention`, `in_progress`, `succeeded`, and `closed`, and the normalized query. `visibility` accepts `active`, `dismissed`, or `all`. `releaseStatus` reports the eventual full commit SHA/version and its deployment state once staff approve and deliver the linked Work Request. `dismiss`, `restore`, and `dismissSucceeded` change only the current principal's history presentation while preserving the canonical request and linked Work Request.
+`list({ limit, offset, search, statusGroup, sort, visibility })` returns bounded pagination metadata, exact counts for `needs_attention`, `in_progress`, `succeeded`, and `closed`, and the normalized query. `visibility` accepts `active`, `dismissed`, or `all`. `releaseStatus` reports the eventual full commit SHA/version and its deployment state after staff approve the proposal and deliver the later linked implementation Work Request. `dismiss`, `restore`, and `dismissSucceeded` change only the current principal's history presentation while preserving the first-class enhancement and any later implementation link.
 
 ## Security contract
 

@@ -152,7 +152,6 @@ test("history controls and image downloads remain on the authenticated same-orig
   const list = await handler(new Request("https://app.example/api/handrail-enhancements?limit=10&search=calendar&status_group=succeeded&sort=oldest&visibility=dismissed"));
   assert.equal(list.status, 200);
   assert.deepEqual(calls[0], ["list", {
-    submission_kind: "enhancement",
     limit: "10",
     offset: undefined,
     search: "calendar",
