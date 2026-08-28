@@ -598,6 +598,40 @@ function decrementHistorySummary(
   };
 }
 
+function incrementHistorySummary(
+  summary: EnhancementHistorySummary | null,
+  statusGroup: EnhancementHistoryStatusGroup,
+): EnhancementHistorySummary | null {
+  if (!summary) return null;
+  return {
+    ...summary,
+    total: summary.total + 1,
+    [statusGroup]: summary[statusGroup] + 1,
+  };
+}
+
+function requestMatchesHistoryQuery(
+  request: EnhancementRequestRecord,
+  query: EnhancementHistoryListOptions,
+): boolean {
+  const visibility = query.visibility || "active";
+  if (visibility === "active" && request.dismissed) return false;
+  if (visibility === "dismissed" && !request.dismissed) return false;
+  if (query.statusGroup && request.status_group !== query.statusGroup) return false;
+  const search = query.search?.trim().toLocaleLowerCase();
+  if (!search) return true;
+  const release = enhancementReleaseSummary(request);
+  return [
+    request.id,
+    request.title,
+    request.description,
+    request.status,
+    request.linked_work_request?.id,
+    release.label,
+    release.version,
+  ].some((value) => value?.toLocaleLowerCase().includes(search));
+}
+
 function HistoryRow({
   request,
   busy,
@@ -688,6 +722,8 @@ export function EnhancementReporterDialog({
   const previewUrls = useRef(new Set<string>());
   const historySearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyLoadedRef = useRef(false);
+  const historyStaleRef = useRef(true);
+  const historyGenerationRef = useRef(0);
   const dialogRef = useRef<HTMLElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const headingId = useId();
@@ -716,10 +752,13 @@ export function EnhancementReporterDialog({
     offset = 0,
     query: EnhancementHistoryListOptions = currentHistoryQuery(),
   ) => {
+    const generation = ++historyGenerationRef.current;
+    historyStaleRef.current = true;
     setLoadingHistory(true);
     setError(null);
     try {
       const page = await client.list({ limit: pageSize, offset, ...query });
+      if (generation !== historyGenerationRef.current) return;
       setHistory((current) => offset === 0
         ? page.requests
         : [...current, ...page.requests.filter(
@@ -728,12 +767,17 @@ export function EnhancementReporterDialog({
       setHistoryHasMore(page.pagination.has_more);
       setHistoryTotal(page.pagination.total);
       setHistorySummary(page.summary);
+      historyLoadedRef.current = true;
+      historyStaleRef.current = false;
     } catch (caught) {
+      if (generation !== historyGenerationRef.current) return;
       setError(caught instanceof Error
         ? caught.message
         : "Could not load enhancement requests.");
     } finally {
-      setLoadingHistory(false);
+      if (generation === historyGenerationRef.current) {
+        setLoadingHistory(false);
+      }
     }
   }, [client, currentHistoryQuery, pageSize]);
 
@@ -752,7 +796,9 @@ export function EnhancementReporterDialog({
     let cancelled = false;
     setTab("new");
     setHistoryAvailable(false);
+    historyGenerationRef.current += 1;
     historyLoadedRef.current = false;
+    historyStaleRef.current = true;
     setHistoryCapabilities(null);
     setHistory([]);
     setHistoryHasMore(false);
@@ -791,7 +837,10 @@ export function EnhancementReporterDialog({
     }).finally(() => {
       if (!cancelled) setDiscovering(false);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      historyGenerationRef.current += 1;
+    };
   }, [client, open]);
 
   useEffect(() => {
@@ -820,8 +869,11 @@ export function EnhancementReporterDialog({
   }, [open]);
 
   useEffect(() => {
-    if (open && tab === "history" && !historyLoadedRef.current) {
-      historyLoadedRef.current = true;
+    if (
+      open
+      && tab === "history"
+      && (!historyLoadedRef.current || historyStaleRef.current)
+    ) {
       void loadHistory(0);
     }
   }, [loadHistory, open, tab]);
@@ -911,6 +963,24 @@ export function EnhancementReporterDialog({
           : {}),
       });
       setSubmitted(result.request);
+      historyStaleRef.current = true;
+      if (historyLoadedRef.current) {
+        const query = currentHistoryQuery();
+        const alreadyVisible = history.some((request) => request.id === result.request.id);
+        const matchesQuery = requestMatchesHistoryQuery(result.request, query);
+        if (matchesQuery && query.sort !== "oldest") {
+          setHistory((current) => [
+            result.request,
+            ...current.filter((request) => request.id !== result.request.id),
+          ].slice(0, pageSize));
+        }
+        if (matchesQuery && !alreadyVisible && !result.replayed) {
+          setHistoryTotal((current) => current + 1);
+          setHistorySummary((current) => (
+            incrementHistorySummary(current, result.request.status_group)
+          ));
+        }
+      }
       setNotificationNotice(
         result.notification_warning
         || (notifyOnResolution && result.notification_subscription?.active === true

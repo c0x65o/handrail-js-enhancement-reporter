@@ -26,7 +26,16 @@ export function EnhancementReporterProvider({
 }: EnhancementReporterProviderProps) {
   const value = useMemo(
     () => client || createEnhancementReporter(config),
-    [client, config],
+    [
+      client,
+      config?.endpoint,
+      config?.enabled,
+      config?.appVersion,
+      config?.conversationId,
+      config?.reporterEmail,
+      config?.notificationsEnabled,
+      config?.fetch,
+    ],
   );
   return <ReporterContext.Provider value={value}>{children}</ReporterContext.Provider>;
 }
