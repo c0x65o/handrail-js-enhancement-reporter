@@ -208,12 +208,15 @@ test("history pages on demand, shows deployment versions, and archives without c
       title: "First enhancement",
       status: "succeeded",
       terminal: true,
+      created_at: "2026-08-12T16:15:00.000Z",
+      reported_app_version: "1.8.0",
       linked_work_request: { id: "work-1" },
       release_tracking: {
         auto_commit: { commits: [{ version: "2.0.0" }] },
         environments: [{
           environment: "production",
           deployment_state: "fully_deployed",
+          deployed_at: "2026-08-14T19:30:00.000Z",
           targets: [{ contains_change: true, current_version: "2.0.0" }],
         }],
       },
@@ -259,7 +262,15 @@ test("history pages on demand, shows deployment versions, and archives without c
   const historyTab = renderer.root.find((node) => node.type === "button" && node.children?.includes("My requests"));
   await act(async () => historyTab.props.onClick());
   assert.deepEqual(listCalls, [{ limit: 1, offset: 0 }]);
-  assert.equal(renderer.root.findAll((node) => node.children?.includes("Production deployed · v2.0.0")).length, 1);
+  assert.equal(renderer.root.findAll((node) => node.children?.includes("Deployed · v2.0.0")).length, 1);
+  assert.equal(renderer.root.findAll((node) => node.children?.includes("v1.8.0")).length, 1);
+  await act(async () => renderer.root.findByProps({ "aria-label": "View First enhancement" }).props.onClick());
+  const detailLabels = renderer.root.findByProps({ "data-handrail-enhancement-history-detail": "true" })
+    .findAllByType("strong").map((node) => node.children.join(""));
+  assert.ok(detailLabels.includes("Submitted"));
+  assert.ok(detailLabels.includes("App version"));
+  assert.ok(detailLabels.includes("Deployed"));
+  assert.equal(detailLabels.includes("Work request"), false);
   const showMore = renderer.root.find((node) => node.type === "button" && node.children?.includes("Show more"));
   await act(async () => showMore.props.onClick());
   assert.deepEqual(listCalls, [{ limit: 1, offset: 0 }, { limit: 1, offset: 1 }]);

@@ -210,10 +210,13 @@ current query when it opens, and slower superseded filter responses are ignored.
 The
 tracker scrolls within the stable dialog and changes its dense desktop table to
 compact cards before the six-column layout can overflow; each row can expand to
-show the request description and attachment names. Each row
-summarizes the strongest release evidence available, preferring production and
-then staging, and includes the deployed application version when Handrail has
-recorded one. Missing release tracking or environment targets display
+show the request description, reference ID, submitted date and time, submitted
+app version, deployment date and time, and attachment names. The desktop list
+keeps implementation-only Work Request IDs out of view and instead shows the
+submitted app version. Each row summarizes the strongest release evidence
+available and includes the deployed application version when Handrail has
+recorded one, without exposing the deployment environment. Missing release
+tracking or environment targets display
 **Deployment status unavailable** rather than **Not deployed**. Archiving only
 changes that principal's history presentation; it never deletes, cancels, or
 changes the first-class enhancement or any later linked implementation Work Request. Set `historyPageSize` on

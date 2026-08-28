@@ -251,6 +251,7 @@ test("Default Known Users receive capability-driven history without automation a
   const dismissed = {
     id: "enh-1", title: "Saved filters", status: "succeeded", status_group: "succeeded",
     description: "Let me save and reuse a filter.", created_at: "2026-08-01T00:00:00Z",
+    reported_app_version: "3.2.1",
     terminal: true, dismissed: true, dismissed_at: "2026-08-01T00:00:00Z",
   };
   const sdk = client(async () => discovery({
@@ -283,6 +284,10 @@ test("Default Known Users receive capability-driven history without automation a
   assert.equal(renderer.root.findByProps({ role: "dialog" }).props.style.height, "min(720px, calc(100dvh - 16px))");
   assert.equal(renderer.root.findByProps({ "data-handrail-enhancement-content": "history" }).props.style.overflow, "hidden");
   assert.equal(renderer.root.findByProps({ role: "table" }).props["aria-label"], "Enhancement requests");
+  const historyHeaders = renderer.root.findAllByProps({ role: "columnheader" }).map((node) => node.children.join(""));
+  assert.ok(historyHeaders.includes("Submitted"));
+  assert.ok(historyHeaders.includes("App version"));
+  assert.equal(historyHeaders.includes("Work request"), false);
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 1);
   assert.deepEqual(renderer.root.findByProps({ "aria-label": "Enhancement visibility" }).findAllByType("button").map((button) => button.children.join("")), ["Archived", "Active", "All"]);
   assert.equal(renderer.root.findAll((node) => node.type === "button" && node.children?.some((child) => typeof child === "string" && child.startsWith("Clear succeeded"))).length, 0);

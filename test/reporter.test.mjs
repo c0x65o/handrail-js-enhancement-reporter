@@ -140,15 +140,16 @@ test("history release summaries prefer production and report the change version"
       auto_commit: { commits: [{ version: "1.4.0", commit_sha: "abc" }] },
       environments: [
         { environment: "staging", deployment_state: "fully_deployed", targets: [{ contains_change: true, current_version: "1.4.0" }] },
-        { environment: "production", deployment_state: "fully_deployed", targets: [{ contains_change: true, current_version: "1.4.0" }] },
+        { environment: "production", deployment_state: "fully_deployed", deployed_at: "2026-08-20T18:42:00.000Z", targets: [{ contains_change: true, current_version: "1.4.0" }] },
       ],
     },
   });
   assert.deepEqual(production, {
     state: "deployed",
-    label: "Production deployed · v1.4.0",
+    label: "Deployed · v1.4.0",
     environment: "production",
     version: "v1.4.0",
+    deployedAt: "2026-08-20T18:42:00.000Z",
   });
   assert.equal(enhancementReleaseSummary({
     release_tracking: { auto_commit: { commits: [{ version: "1.5.0" }] }, environments: [] },
@@ -163,6 +164,7 @@ test("history release summaries prefer production and report the change version"
     label: "Deployment status unavailable · v1.5.0",
     environment: null,
     version: "v1.5.0",
+    deployedAt: null,
   });
   assert.equal(enhancementReleaseSummary({ release_tracking: null }).label, "Deployment status unavailable");
 });

@@ -130,6 +130,8 @@ export interface EnhancementRequestRecord {
   readonly status_group: EnhancementHistoryStatusGroup;
   readonly terminal: boolean;
   readonly submission_kind?: "enhancement";
+  /** Application version from which the user submitted this request. */
+  readonly reported_app_version?: string | null;
   readonly linked_work_request?: { readonly id: string } | null;
   readonly attachments?: readonly {
     readonly id: string;
@@ -151,11 +153,13 @@ export interface EnhancementReleaseTarget {
   readonly change_version?: string | null;
   readonly contains_change?: boolean | null;
   readonly containment_basis?: string | null;
+  readonly deployed_at?: string | null;
 }
 
 export interface EnhancementReleaseEnvironment {
   readonly environment: string;
   readonly deployment_state: "fully_deployed" | "partially_deployed" | "not_deployed" | "unknown" | "no_targets" | string;
+  readonly deployed_at?: string | null;
   readonly targets?: readonly EnhancementReleaseTarget[];
 }
 
@@ -171,6 +175,7 @@ export interface EnhancementReleaseSummary {
   readonly label: string;
   readonly environment: string | null;
   readonly version: string | null;
+  readonly deployedAt: string | null;
 }
 
 export interface EnhancementRequestPage {
@@ -278,12 +283,13 @@ export function enhancementReleaseSummary(request: Pick<EnhancementRequestRecord
       .filter(Boolean))];
     const version = versions.length === 1 ? versions[0] : null;
     const partial = deployed.deployment_state === "partially_deployed";
-    const environmentLabel = `${environment.charAt(0).toUpperCase()}${environment.slice(1)}`;
+    const deployedAt = clean(deployed.deployed_at, 160) || null;
     return Object.freeze({
       state: partial ? "partially_deployed" : "deployed",
-      label: `${environmentLabel} ${partial ? "partially deployed" : "deployed"}${version ? ` · ${version}` : versions.length > 1 ? " · multiple versions" : ""}`,
+      label: `${partial ? "Partially deployed" : "Deployed"}${version ? ` · ${version}` : versions.length > 1 ? " · multiple versions" : ""}`,
       environment,
       version,
+      deployedAt,
     });
   }
   const autoCommit = record(tracking?.auto_commit);
@@ -303,6 +309,7 @@ export function enhancementReleaseSummary(request: Pick<EnhancementRequestRecord
       label: `Deployment status unavailable${version ? ` · ${version}` : versions.length > 1 ? " · multiple versions" : ""}`,
       environment: null,
       version,
+      deployedAt: null,
     });
   }
   return Object.freeze({
@@ -310,6 +317,7 @@ export function enhancementReleaseSummary(request: Pick<EnhancementRequestRecord
     label: `Not deployed${version ? ` · ${version}` : versions.length > 1 ? " · multiple versions" : ""}`,
     environment: null,
     version,
+    deployedAt: null,
   });
 }
 

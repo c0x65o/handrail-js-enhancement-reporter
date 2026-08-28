@@ -462,7 +462,7 @@ const styles: Record<string, CSSProperties> = {
   },
   historyItem: {
     display: "grid",
-    gridTemplateColumns: "minmax(220px, 2.2fr) minmax(90px, .72fr) minmax(120px, .9fr) minmax(150px, 1.1fr) minmax(115px, .8fr) 126px",
+    gridTemplateColumns: "minmax(220px, 2.2fr) minmax(150px, .9fr) minmax(100px, .72fr) minmax(150px, 1.1fr) minmax(140px, .9fr) 126px",
     alignItems: "center",
     gap: 10,
     padding: "8px 12px",
@@ -478,7 +478,7 @@ const styles: Record<string, CSSProperties> = {
   },
   historyListHeader: {
     display: "grid",
-    gridTemplateColumns: "minmax(220px, 2.2fr) minmax(90px, .72fr) minmax(120px, .9fr) minmax(150px, 1.1fr) minmax(115px, .8fr) 126px",
+    gridTemplateColumns: "minmax(220px, 2.2fr) minmax(150px, .9fr) minmax(100px, .72fr) minmax(150px, 1.1fr) minmax(140px, .9fr) 126px",
     gap: 10,
     padding: "7px 12px",
     color: "var(--handrail-enhancement-muted-text)",
@@ -530,12 +530,18 @@ function displayLabel(value: string): string {
     : value;
 }
 
-function requestDate(value: string | undefined): string {
+function requestDate(value: string | null | undefined): string {
   if (!value) return "—";
   const date = new Date(value);
   return Number.isNaN(date.valueOf())
     ? "—"
-    : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+    : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function displayAppVersion(value: string | null | undefined): string {
+  const version = value?.trim();
+  if (!version) return "—";
+  return version.startsWith("v") ? version : `v${version}`;
 }
 
 function enhancementStatusStyle(group: EnhancementHistoryStatusGroup): CSSProperties {
@@ -673,10 +679,9 @@ function HistoryRow({
   return <article role="row" data-handrail-enhancement-history-row="true" style={styles.historyItem}>
     <div role="cell" style={{ minWidth: 0 }}>
       <strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>{request.title}</strong>
-      <span style={{ display: "block", marginTop: 3, overflow: "hidden", color: "var(--handrail-enhancement-muted-text)", fontSize: 10, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{request.id}</span>
     </div>
     <span role="cell" data-handrail-enhancement-history-cell="secondary" style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>{requestDate(request.created_at)}</span>
-    <span role="cell" data-handrail-enhancement-history-cell="secondary" style={{ overflow: "hidden", color: "var(--handrail-enhancement-muted-text)", fontSize: 12, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{request.linked_work_request?.id || "Pending review"}</span>
+    <span role="cell" data-handrail-enhancement-history-cell="secondary" style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>{displayAppVersion(request.reported_app_version)}</span>
     <div role="cell" data-handrail-enhancement-history-cell="status">
       <span style={{ display: "inline-block", overflow: "hidden", maxWidth: "100%", padding: "3px 8px", border: "1px solid", borderRadius: 999, textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 10, fontWeight: 800, ...enhancementStatusStyle(request.status_group) }}>{displayLabel(request.status)}</span>
     </div>
@@ -687,8 +692,12 @@ function HistoryRow({
         ? <button type="button" aria-label={`Restore ${request.title}`} disabled={busy} onClick={() => void onRestore(request.id)} style={{ border: 0, padding: "6px 2px", color: "var(--handrail-enhancement-accent)", background: "transparent", cursor: busy ? "wait" : "pointer", font: "inherit", fontSize: 12, fontWeight: 800 }}>{busy ? "Restoring…" : "Restore"}</button>
         : !request.dismissed && <button type="button" aria-label={`Archive ${request.title}`} disabled={busy} onClick={() => void onArchive(request.id)} style={{ border: 0, padding: "6px 2px", color: "var(--handrail-enhancement-accent)", background: "transparent", cursor: busy ? "wait" : "pointer", font: "inherit", fontSize: 12, fontWeight: 800 }}>{busy ? "Archiving…" : "Archive"}</button>}
     </div>
-    {expanded && <div role="cell" data-handrail-enhancement-history-detail="true" style={{ gridColumn: "1 / -1", display: "grid", gap: 10, padding: "10px 12px", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, color: "var(--handrail-enhancement-muted-text)", background: "var(--handrail-enhancement-surface-muted)", fontSize: 11 }}>
-      <span><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Request details</strong>{request.description || "No additional description is available."}</span>
+    {expanded && <div role="cell" data-handrail-enhancement-history-detail="true" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, padding: "10px 12px", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, color: "var(--handrail-enhancement-muted-text)", background: "var(--handrail-enhancement-surface-muted)", fontSize: 11 }}>
+      <span style={{ gridColumn: "1 / -1" }}><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Request details</strong>{request.description || "No additional description is available."}</span>
+      <span><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Reference ID</strong>{request.id}</span>
+      <span><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Submitted</strong>{requestDate(request.created_at)}</span>
+      <span><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>App version</strong>{displayAppVersion(request.reported_app_version)}</span>
+      {release.deployedAt && <span><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Deployed</strong>{requestDate(release.deployedAt)}</span>}
       {Boolean(request.attachments?.length) && <span><strong style={{ color: "var(--handrail-enhancement-text)" }}>Attachments:</strong> {request.attachments!.map((attachment) => attachment.filename).join(", ")}</span>}
     </div>}
   </article>;
@@ -1184,7 +1193,7 @@ export function EnhancementReporterDialog({
     </div>
 
     {(historyCapabilities?.search || historyCapabilities?.status_groups.length || historyCapabilities?.sorts.length) && <div style={styles.historyControls}>
-      {historyCapabilities?.search && <input aria-label="Search my requests" autoComplete="off" maxLength={200} type="search" value={historySearch} onChange={(event) => searchHistory(event.target.value)} placeholder="Search title, request, or release…" style={{ ...styles.input, flex: "1 1 320px", minWidth: 0 }} />}
+      {historyCapabilities?.search && <input aria-label="Search my requests" autoComplete="off" maxLength={200} type="search" value={historySearch} onChange={(event) => searchHistory(event.target.value)} placeholder="Search title or app version…" style={{ ...styles.input, flex: "1 1 320px", minWidth: 0 }} />}
       {Boolean(historyCapabilities?.status_groups.length) && <button type="button" aria-expanded={historyFiltersVisible} onClick={() => setHistoryFiltersVisible((current) => !current)} style={{ ...buttonStyle("secondary"), flex: "0 0 auto", ...(historyFiltersVisible ? styles.selectedControl : {}) }}>Filters</button>}
       {Boolean(historyCapabilities?.sorts.length) && <select aria-label="Enhancement sort order" value={historySort} onChange={(event) => {
         const next = event.target.value as EnhancementHistorySort;
@@ -1250,7 +1259,7 @@ export function EnhancementReporterDialog({
 
         {error && <div role="alert" aria-live="assertive" style={{ ...styles.status, background: "var(--handrail-enhancement-danger-surface)", color: "var(--handrail-enhancement-danger-text)" }}>{error}</div>}
         {submitted && tab === "new" && <div role="status" aria-live="polite" style={{ ...styles.status, background: "var(--handrail-enhancement-success-surface)", color: "var(--handrail-enhancement-success-text)" }}>
-          Request submitted successfully as <strong>{submitted.linked_work_request?.id || submitted.id}</strong>.
+          Request submitted successfully. You can follow its progress from My requests.
           {notificationNotice && <> {notificationNotice}</>}
         </div>}
 
@@ -1338,7 +1347,7 @@ export function EnhancementReporterDialog({
           {!loadingHistory && history.length === 0 && !error && <div role="status" style={{ color: "var(--handrail-enhancement-muted-text)" }}>No enhancement requests match these filters.</div>}
           {history.length > 0 && <div role="table" aria-label="Enhancement requests" data-handrail-enhancement-history-list="true" style={{ ...styles.historyList, flex: "1 1 auto" }}>
             <div role="row" data-handrail-enhancement-history-header="true" style={styles.historyListHeader}>
-              <span role="columnheader">Request</span><span role="columnheader">Submitted</span><span role="columnheader">Work request</span><span role="columnheader">Status</span><span role="columnheader">Release</span><span role="columnheader">Action</span>
+              <span role="columnheader">Request</span><span role="columnheader">Submitted</span><span role="columnheader">App version</span><span role="columnheader">Status</span><span role="columnheader">Release</span><span role="columnheader">Action</span>
             </div>
             {history.map((request) => <HistoryRow
               key={request.id}
