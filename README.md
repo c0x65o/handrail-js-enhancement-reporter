@@ -2,7 +2,7 @@
 
 Authenticated, web-only customer enhancement requests for Handrail. The package provides a browser client, a ready-to-use React dialog, and a framework-neutral same-origin server handler with its own narrow Handrail REST transport. It does not require `@handrail/mcp`.
 
-Every submission creates a first-class Project Management Enhancement and starts a read-only AI assessment when that runtime option is enabled. Assessment can gather repository evidence, propose acceptance criteria and QA, and assess source-change risk, but it cannot edit source, commit, implement, or deploy. Handrail staff explicitly accept a proposal and authorize implementation later. Every request stays scoped to the authenticated Known User who submitted it.
+Every submission creates a first-class Project Management Enhancement and starts a read-only AI assessment when that runtime option is enabled. Assessment can gather repository evidence, propose acceptance criteria and QA, and assess source-change risk, but it cannot edit source, commit, implement, or deploy. After a current assessment reaches Proposal Ready, Handrail revalidates the current Known User role and project policy. Work within that role's automatic implementation risk ceiling creates a linked implementation Work Request; work outside the ceiling remains available to staff through Handrail's audited manual authorization action. Every request stays scoped to the authenticated Known User who submitted it.
 
 ## Install
 
@@ -28,6 +28,24 @@ The enhancement reporter has a dedicated first-class Enhancement Reporting API a
 
 Handrail provisions the `enhancement_reporting` capability against one exact server runtime and injects only the enhancement-specific variables below. It is independent from assistant features and credentials.
 
+```text
+HANDRAIL_ENHANCEMENT_REPORTER_ENABLED
+HANDRAIL_ENHANCEMENT_REPORTER_API_URL
+HANDRAIL_ENHANCEMENT_REPORTER_VERSION
+HANDRAIL_ENHANCEMENT_REPORTER_PROJECT_ID
+HANDRAIL_ENHANCEMENT_REPORTER_CAPABILITY_ID
+HANDRAIL_ENHANCEMENT_REPORTER_SERVICE_ENV_ID
+HANDRAIL_ENHANCEMENT_REPORTER_TOKEN
+```
+
+Treat `HANDRAIL_ENHANCEMENT_REPORTER_ENABLED=true` as the only server-runtime
+availability signal for this reporter. Do not substitute a generic assistant
+capability flag or an app-owned enhancement mode. Fail closed when the value is
+not exactly `true` or when the enabled runtime is missing any of the injected
+values. `HANDRAIL_ENHANCEMENT_REPORTER_SERVICE_ENV_ID` is server-only binding
+metadata for exact-runtime readiness checks; it is not a browser or submission
+field.
+
 ## Server route
 
 The example below fits a Next.js catch-all route at `app/api/handrail-enhancements/[[...path]]/route.ts`. The same handler works with any framework that supplies Web `Request` and `Response` objects.
@@ -36,6 +54,7 @@ The example below fits a Next.js catch-all route at `app/api/handrail-enhancemen
 import { createSameOriginEnhancementReporterHandler } from "@handrail/enhancement-reporter/server";
 
 const handler = createSameOriginEnhancementReporterHandler({
+  enabled: process.env.HANDRAIL_ENHANCEMENT_REPORTER_ENABLED === "true",
   routeBasePath: "/api/handrail-enhancements",
   apiUrl: process.env.HANDRAIL_ENHANCEMENT_REPORTER_API_URL!,
   projectId: process.env.HANDRAIL_ENHANCEMENT_REPORTER_PROJECT_ID!,
@@ -56,11 +75,26 @@ export const POST = handler;
 
 The handler rejects missing Known User sessions and cross-site requests. It forwards neither cookies nor application authorization headers. Keep the route behind your framework's normal CSRF/session protections as well.
 
+Runtime enablement and principal discovery are separate checks, not access
+modes. The server flag above controls whether the same-origin adapter exists.
+After authentication, `enhancement_reporting.enabled` confirms that the
+first-class reporter is available, and
+`enhancement_reporting.history.enabled` is the canonical **My requests**
+capability. `enhancement_reporting.user_enabled` is retained only for older
+server compatibility; application code must not require it for submission or
+history. The packaged UI prefers `history.enabled` and consults
+`user_enabled` only when an older discovery response omits the history
+capability. Known User roles affect later automation policy, not intake or
+owned-history eligibility.
+
 Trusted server integrations such as the Handrail MCP connector may use
 `createRequestScopedEnhancementReporter` from the server entry point instead of
 mounting a browser route. Its resolver is called for every request context and
 must return the current opaque application session. The factory fails closed
 when no session is available and never accepts a caller-selected user ID.
+This optional composition still uses the dedicated enhancement reporter runtime
+tuple directly; it does not route through Assistant Change Bridge or make an
+MCP package part of the reporter contract.
 
 ## Choose an integration path
 
@@ -194,7 +228,7 @@ mail. The email includes an unsubscribe link. Set `notificationsEnabled: false` 
 legacy `reporterEmail` option is ignored and deprecated for source
 compatibility.
 
-The dialog never asks the customer to authorize work or choose a deployment target. Submission authority is intake-only. Handrail evaluates the accepted assessment against the current project policy when staff later choose **Approve and implement**.
+The dialog never asks the customer to authorize work or choose a deployment target. Submission authority is intake-only. After an assessment reaches Proposal Ready, Handrail automatically creates implementation work only when the assessed risk is within the current role's configured ceiling. Staff can separately authorize a proposal outside that ceiling; neither path grants the SDK deployment authority.
 
 Every verified Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin discovery route before rendering navigation, and every verified user receives the **My requests** tab automatically. The tab lists only requests owned by the current authenticated principal, and returned attachment URLs pass through the same principal-scoped route. Known User roles affect later Handrail authorization decisions; they never turn SDK submission into implementation authority.
 
@@ -273,7 +307,7 @@ function SuggestionForm() {
 }
 ```
 
-`list({ limit, offset, search, statusGroup, sort, visibility })` returns bounded pagination metadata, exact counts for `needs_attention`, `in_progress`, `succeeded`, and `closed`, and the normalized query. `visibility` accepts `active`, `dismissed`, or `all`. `releaseStatus` reports the eventual full commit SHA/version and its deployment state after staff approve the proposal and deliver the later linked implementation Work Request. `dismiss`, `restore`, and `dismissSucceeded` change only the current principal's history presentation while preserving the first-class enhancement and any later implementation link.
+`list({ limit, offset, search, statusGroup, sort, visibility })` returns bounded pagination metadata, exact counts for `needs_attention`, `in_progress`, `succeeded`, and `closed`, and the normalized query. `visibility` accepts `active`, `dismissed`, or `all`. `releaseStatus` reports the eventual full commit SHA/version and its deployment state after policy-authorized implementation produces and delivers the linked Work Request. `dismiss`, `restore`, and `dismissSucceeded` change only the current principal's history presentation while preserving the first-class enhancement and any later implementation link.
 
 ## Security contract
 

@@ -61,6 +61,32 @@ test("handler requires an authenticated Known User session", async () => {
   assert.equal((await response.json()).code, "enhancement_user_authentication_required");
 });
 
+test("handler fails closed when the exact runtime is disabled", async () => {
+  let resolved = false;
+  let created = false;
+  const handler = createSameOriginEnhancementReporterHandler({
+    enabled: false,
+    apiUrl: "https://handrail.example/api/enhancement-reporting/v1",
+    projectId: "project-1",
+    capabilityId: "capability-1",
+    token: "secret",
+    resolveApplicationSessionToken: async () => {
+      resolved = true;
+      return "known-user-session";
+    },
+    createClient: () => {
+      created = true;
+      throw new Error("disabled runtime must not create a transport");
+    },
+  });
+
+  const response = await handler(new Request("https://app.example/api/handrail-enhancements"));
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).code, "enhancement_reporting_disabled");
+  assert.equal(resolved, false);
+  assert.equal(created, false);
+});
+
 test("request-scoped transport requires and forwards only the current Known User session", async () => {
   const calls = [];
   const factory = createRequestScopedEnhancementReporter({

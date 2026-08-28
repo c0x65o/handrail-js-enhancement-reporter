@@ -66,6 +66,7 @@ export interface EnhancementSubmissionResult {
 export interface EnhancementReporterConfig {
   /** Same-origin absolute path. Defaults to `/api/handrail-enhancements`. */
   readonly endpoint?: string;
+  /** Browser-client availability only. Do not derive this from discovery user_enabled. */
   readonly enabled?: boolean;
   readonly appVersion?: string;
   readonly conversationId?: string;
@@ -105,6 +106,7 @@ export interface EnhancementReporterDiscovery {
   readonly contract_version?: "v1";
   readonly enhancement_reporting?: {
     readonly enabled?: boolean;
+    /** Legacy discovery compatibility only; current owned-history access uses history.enabled. */
     readonly user_enabled?: boolean;
     readonly access_level?: string | null;
     /** Canonical shared Known User role; access_level remains for compatibility. */

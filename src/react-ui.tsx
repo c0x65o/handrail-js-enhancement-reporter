@@ -841,6 +841,8 @@ export function EnhancementReporterDialog({
     void client.discover().then((discovery) => {
       if (cancelled) return;
       const capabilities = discovery?.enhancement_reporting?.history || null;
+      // Current discovery owns history through history.enabled. Fall back to
+      // user_enabled only for servers that predate the history capability.
       const ownedHistoryEnabled = capabilities?.enabled === true
         || (capabilities?.enabled === undefined
           && discovery?.enhancement_reporting?.user_enabled === true);

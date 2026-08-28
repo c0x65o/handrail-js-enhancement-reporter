@@ -198,6 +198,41 @@ test("the React dialog preserves My requests compatibility with older enabled-us
   await act(async () => renderer.unmount());
 });
 
+test("canonical history capability overrides legacy enabled-user discovery", async () => {
+  const client = {
+    enabled: true,
+    endpoint: "/api/handrail-enhancements",
+    discover: async () => ({
+      enhancement_reporting: {
+        enabled: true,
+        user_enabled: true,
+        history: {
+          enabled: false,
+          summary: false,
+          search: false,
+          status_groups: [],
+          sorts: [],
+          visibilities: [],
+          restore: false,
+          dismiss_succeeded: false,
+        },
+      },
+    }),
+    submit: async () => { throw new Error("not used"); },
+    list: async () => { throw new Error("disabled history must not load"); },
+  };
+  let renderer;
+  await act(async () => {
+    renderer = create(createElement(EnhancementReporterDialog, {
+      open: true,
+      onClose() {},
+      client,
+    }));
+  });
+  assert.equal(renderer.root.findAll((node) => node.children?.includes("My requests")).length, 0);
+  await act(async () => renderer.unmount());
+});
+
 test("history pages on demand, shows deployment versions, and archives without cancellation", async () => {
   const listCalls = [];
   const dismissCalls = [];

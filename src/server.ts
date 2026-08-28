@@ -16,6 +16,7 @@ export interface EnhancementTransportClient {
 }
 
 export interface SameOriginEnhancementReporterConfig<RequestType extends Request = Request> {
+  /** Server-runtime availability only; normally parsed from HANDRAIL_ENHANCEMENT_REPORTER_ENABLED. */
   readonly enabled?: boolean;
   readonly routeBasePath?: string;
   readonly apiUrl: string;
