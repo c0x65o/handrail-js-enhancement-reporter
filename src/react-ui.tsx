@@ -118,10 +118,6 @@ interface SelectedImage {
   readonly size: number;
 }
 
-interface EnhancementPolicyCells {
-  readonly run_work_request: "pending" | "ask" | "always";
-}
-
 type UiVariables = EnhancementReporterStyle;
 type DialogTab = "new" | "history";
 
@@ -165,10 +161,6 @@ const RESPONSIVE_DIALOG_CSS = `
   [data-handrail-enhancement-tabs="true"] { margin-bottom: 14px !important; }
 }
 `;
-
-const PENDING_POLICY: EnhancementPolicyCells = Object.freeze({
-  run_work_request: "pending",
-});
 
 const LIGHT_TOKENS: EnhancementReporterThemeTokens = Object.freeze({
   accent: "#2563eb",
@@ -241,17 +233,6 @@ const focusableSelector = [
   "textarea:not([disabled])",
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
-
-function policyCells(value: unknown): EnhancementPolicyCells {
-  const discovery = value as any;
-  const cells = discovery?.enhancement_reporting?.policy?.cells;
-  const run = ["pending", "ask", "always"].includes(cells?.run_work_request)
-    ? cells.run_work_request
-    : "pending";
-  return {
-    run_work_request: run,
-  };
-}
 
 function appearanceVariables(
   appearance: EnhancementReporterAppearance | undefined,
@@ -696,10 +677,6 @@ export function EnhancementReporterDialog({
   const [historySort, setHistorySort] = useState<EnhancementHistorySort>("newest");
   const [historyVisibility, setHistoryVisibility] = useState<EnhancementHistoryVisibility>("active");
   const [historyFiltersVisible, setHistoryFiltersVisible] = useState(true);
-  const [policy, setPolicy] = useState<EnhancementPolicyCells>(PENDING_POLICY);
-  const [automationRequests, setAutomationRequests] = useState({
-    run_work_request: false,
-  });
   const [discovering, setDiscovering] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [busyHistoryId, setBusyHistoryId] = useState<string | null>(null);
@@ -781,10 +758,6 @@ export function EnhancementReporterDialog({
     setHistoryHasMore(false);
     setHistoryTotal(0);
     setHistorySummary(null);
-    setPolicy(PENDING_POLICY);
-    setAutomationRequests({
-      run_work_request: false,
-    });
     setNotifyOnResolution(false);
     setNotificationAvailable(false);
     setNotificationRecipientHint(null);
@@ -804,7 +777,6 @@ export function EnhancementReporterDialog({
       if (capabilities?.visibilities.length && !capabilities.visibilities.includes("active")) {
         setHistoryVisibility(capabilities.visibilities[0]);
       }
-      setPolicy(policyCells(discovery));
       setNotificationAvailable(discovery?.reporter_notifications?.available === true);
       setNotificationRecipientHint(
         discovery?.reporter_notifications?.recipient_hint || null,
@@ -934,7 +906,6 @@ export function EnhancementReporterDialog({
         priority,
         images: images.map((image) => image.input),
         context: attachedContext,
-        automationRequests,
         ...(notifyOnResolution
           ? { notification: { notifyOnResolution: true } }
           : {}),
@@ -951,9 +922,6 @@ export function EnhancementReporterDialog({
       setPriority("medium");
       for (const image of images) revokePreview(image, previewUrls.current);
       setImages([]);
-      setAutomationRequests({
-        run_work_request: false,
-      });
       setNotifyOnResolution(false);
     } catch (caught) {
       setError(caught instanceof Error
@@ -1022,7 +990,6 @@ export function EnhancementReporterDialog({
 
   if (!open) return null;
 
-  const hasAskOptions = policy.run_work_request === "ask";
   const canNotify = client.notificationsEnabled !== false && notificationAvailable;
   const variables = appearanceVariables(appearance);
   const closeDialog = () => {
@@ -1266,16 +1233,6 @@ export function EnhancementReporterDialog({
                   </label>
                 </fieldset>}
 
-                {hasAskOptions && <fieldset style={{ ...styles.fieldset, margin: 0 }}>
-              <legend style={{ padding: "0 5px", fontSize: 12, fontWeight: 700 }}>Optional automation</legend>
-              {policy.run_work_request === "ask" && <label style={{ ...styles.checkboxLabel, marginTop: 0 }}>
-                <input type="checkbox" aria-label="Start work on this request" checked={automationRequests.run_work_request} onChange={(event) => setAutomationRequests((current) => ({
-                  ...current,
-                  run_work_request: event.target.checked,
-                }))} />
-                <span><strong>Start work on this request</strong><span style={{ display: "block", marginTop: 2, color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>Otherwise it remains pending for the product team.</span></span>
-              </label>}
-                </fieldset>}
               </aside>
             </div>
 

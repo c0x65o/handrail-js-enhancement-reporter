@@ -18,7 +18,7 @@ test("browser submissions are same-origin policy requests with uploaded and past
     appVersion: "1.2.3",
     fetch: async (url, init) => {
       calls.push({ url, init });
-      return new Response(JSON.stringify({ request: { id: "bridge-1", title: "Saved views", status: "needs_attention", terminal: false, linked_work_request: { id: "wr-1" } }, replayed: false }), { status: 201 });
+      return new Response(JSON.stringify({ request: { id: "enhancement-1", title: "Saved views", status: "received", terminal: false, linked_work_request: null }, replayed: false }), { status: 201 });
     },
   });
   assert.equal(reporter.appVersion, "1.2.3");
@@ -26,13 +26,12 @@ test("browser submissions are same-origin policy requests with uploaded and past
     title: "Saved views",
     description: "Let me save these filters.",
     idempotencyKey: "intent-1",
-    automationRequests: { run_work_request: true },
     images: [
       { data: new Blob([png], { type: "image/png" }), filename: "upload.png", source: "upload" },
       { data: `data:image/png;base64,${Buffer.from(png).toString("base64")}`, filename: "paste.png", source: "clipboard" },
     ],
   });
-  assert.equal(result.request.linked_work_request.id, "wr-1");
+  assert.equal(result.request.id, "enhancement-1");
   assert.equal(calls[0].url, "/api/handrail-enhancements");
   assert.equal(calls[0].init.credentials, "same-origin");
   const payload = JSON.parse(calls[0].init.body);
@@ -41,7 +40,7 @@ test("browser submissions are same-origin policy requests with uploaded and past
   assert.equal(payload.context.app_version, "1.2.3");
   assert.deepEqual(payload.attachments.map((item) => item.source), ["upload", "clipboard"]);
   assert.equal(payload.reporter_sdk.package, "@handrail/enhancement-reporter");
-  assert.deepEqual(payload.automation_requests, { run_work_request: true });
+  assert.equal("automation_requests" in payload, false);
   assert.equal("token" in payload, false);
 });
 
@@ -62,7 +61,7 @@ test("notification opt-in follows an accepted enhancement as a separate same-ori
           }), { status: 201 })
         : new Response(JSON.stringify({
             request: {
-              id: "bridge-notify-1",
+              id: "enhancement-notify-1",
               title: "Saved views",
               status: "needs_attention",
               terminal: false,
@@ -83,7 +82,7 @@ test("notification opt-in follows an accepted enhancement as a separate same-ori
   assert.equal(calls[0].url, "/api/handrail-enhancements");
   assert.equal(
     calls[1].url,
-    "/api/handrail-enhancements/requests/bridge-notify-1/subscription",
+    "/api/handrail-enhancements/requests/enhancement-notify-1/subscription",
   );
   assert.equal(JSON.parse(calls[0].init.body).reporter_notification, undefined);
   assert.deepEqual(JSON.parse(calls[1].init.body), {
@@ -102,7 +101,7 @@ test("notification failure does not turn an accepted enhancement into a failure"
       ? new Response("unavailable", { status: 503 })
       : new Response(JSON.stringify({
           request: {
-            id: "bridge-notify-2",
+            id: "enhancement-notify-2",
             title: "Saved views",
             status: "needs_attention",
             terminal: false,
@@ -117,7 +116,7 @@ test("notification failure does not turn an accepted enhancement into a failure"
       notifyOnResolution: true,
     },
   });
-  assert.equal(result.request.id, "bridge-notify-2");
+  assert.equal(result.request.id, "enhancement-notify-2");
   assert.equal(result.notification_subscription, null);
   assert.match(result.notification_warning, /enhancement was sent/u);
 });

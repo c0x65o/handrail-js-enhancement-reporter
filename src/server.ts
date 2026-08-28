@@ -15,18 +15,6 @@ export interface EnhancementTransportClient {
   downloadAttachment(input: { request_id: string; attachment_id: string }): Promise<{ data: Uint8Array; filename: string | null; mime_type: string; size_bytes: number }>;
 }
 
-/** @deprecated Use EnhancementTransportClient. */
-export type EnhancementBridgeClient = EnhancementTransportClient;
-
-function automationRequests(value: unknown): Record<string, boolean> {
-  const source = value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-  return {
-    run_work_request: source.run_work_request === true,
-  };
-}
-
 export interface SameOriginEnhancementReporterConfig<RequestType extends Request = Request> {
   readonly enabled?: boolean;
   readonly routeBasePath?: string;
@@ -43,7 +31,7 @@ export interface SameOriginEnhancementReporterConfig<RequestType extends Request
 }
 
 const MAX_FORWARD_BODY_BYTES = 22 * 1024 * 1024;
-const BRIDGE_REQUEST_TIMEOUT_MS = 10_000;
+const TRANSPORT_REQUEST_TIMEOUT_MS = 10_000;
 
 class EnhancementTransportError extends Error {
   readonly code: string;
@@ -87,7 +75,7 @@ function transportRequestUrl(apiUrl: string, path: string): string {
   if (resolved.origin !== base.origin || !resolved.pathname.startsWith(basePath)) {
     throw new EnhancementTransportError(
       "The Handrail enhancement transport request path is invalid.",
-      "enhancement_reporter_bridge_scope_denied",
+      "enhancement_reporter_transport_scope_denied",
       500,
     );
   }
@@ -107,7 +95,7 @@ function parseJson(text: string): any {
 function transportErrorFromResponse(response: Response, payload: any, secrets: readonly string[]): EnhancementTransportError {
   return new EnhancementTransportError(
     redactTransportMessage(payload?.error || payload?.message, secrets) || `Handrail rejected the enhancement request (${response.status}).`,
-    clean(payload?.code, 120) || "enhancement_reporter_bridge_http_error",
+    clean(payload?.code, 120) || "enhancement_reporter_transport_http_error",
     response.status,
   );
 }
@@ -117,7 +105,7 @@ function assertTransportContract(payload: any, contractVersion: "v1"): any {
   if (received !== contractVersion) {
     throw new EnhancementTransportError(
       "Handrail returned an incompatible enhancement transport response.",
-      "enhancement_reporter_bridge_contract_mismatch",
+      "enhancement_reporter_transport_contract_mismatch",
       502,
     );
   }
@@ -152,7 +140,7 @@ function defaultTransportClient<RequestType extends Request>(
   });
   const perform = async (path: string, init: RequestInit): Promise<Response> => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), BRIDGE_REQUEST_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), TRANSPORT_REQUEST_TIMEOUT_MS);
     try {
       return await fetchImpl(transportRequestUrl(apiUrl, path), { ...init, signal: controller.signal });
     } catch (error) {
@@ -162,8 +150,8 @@ function defaultTransportClient<RequestType extends Request>(
           ? "The Handrail enhancement transport request timed out."
           : "The Handrail enhancement transport request failed.",
         error instanceof Error && error.name === "AbortError"
-          ? "enhancement_reporter_bridge_timeout"
-          : "enhancement_reporter_bridge_network_error",
+          ? "enhancement_reporter_transport_timeout"
+          : "enhancement_reporter_transport_network_error",
         502,
         error,
       );
@@ -292,19 +280,11 @@ function enhancementPayload(body: Record<string, any>): Record<string, unknown> 
   return {
     idempotency_key: idempotencyKey,
     external_conversation_id: conversationId,
-    requested_mode: "work_request",
-    requested_delivery_ceiling: "work_request",
     submission_kind: "enhancement",
     source: ENHANCEMENT_SOURCE,
     title,
     description,
     priority: ["low", "medium", "high", "urgent"].includes(body.priority) ? body.priority : "medium",
-    category: "feature",
-    run_codex: false,
-    ci_cd: false,
-    target_check_ids: [],
-    auto_commit_push: false,
-    auto_deploy_env: null,
     context: {
       route: clean(context.route, 2_000) || null,
       page_title: clean(context.page_title, 500) || null,
@@ -312,7 +292,6 @@ function enhancementPayload(body: Record<string, any>): Record<string, unknown> 
       viewport: clean(context.viewport, 80) || null,
     },
     reporter_sdk: reporterIdentity("node"),
-    automation_requests: automationRequests(body.automation_requests),
     attachments,
   };
 }
@@ -351,7 +330,6 @@ export function createSameOriginEnhancementReporterHandler<RequestType extends R
       if (request.method === "GET" && parts.length === 0) {
         const url = new URL(request.url);
         return json(200, await client.list({
-          submission_kind: "enhancement",
           limit: url.searchParams.get("limit") || undefined,
           offset: url.searchParams.get("offset") || undefined,
           search: url.searchParams.get("search") || undefined,

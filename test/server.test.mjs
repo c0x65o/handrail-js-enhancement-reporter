@@ -19,7 +19,7 @@ function setup(session = "session-1") {
     discover: async () => ({ contract_version: "v1", policy: { delivery_ceiling: "work_request" } }),
     list: async (input) => { calls.push(["list", input]); return { contract_version: "v1", requests: [], pagination: { limit: 20, offset: 0, total: 0, has_more: false } }; },
     lookup: async ({ request_id }) => ({ id: request_id, status: "needs_attention", terminal: false }),
-    releaseStatus: async ({ request_id }) => ({ contract_version: "v1", bridge_request_id: request_id }),
+    releaseStatus: async ({ request_id }) => ({ contract_version: "v1", request_id }),
     dismiss: async ({ request_id }) => { calls.push(["dismiss", { request_id }]); return { contract_version: "v1", request_id, dismissed_at: "2026-08-13T20:00:00.000Z", underlying_request_preserved: true }; },
     restore: async ({ request_id }) => { calls.push(["restore", { request_id }]); return { contract_version: "v1", request_id, dismissed: false, dismissed_at: null, underlying_request_preserved: true }; },
     dismissSucceeded: async () => { calls.push(["dismissSucceeded"]); return { contract_version: "v1", dismissed_count: 2, underlying_requests_preserved: true }; },
@@ -36,12 +36,12 @@ function setup(session = "session-1") {
         },
       };
     },
-    submit: async (input) => { calls.push(["submit", input]); return { request: { id: "bridge-1", status: "needs_attention", terminal: false, linked_work_request: { id: "wr-1" } }, replayed: false }; },
+    submit: async (input) => { calls.push(["submit", input]); return { request: { id: "enhancement-1", status: "received", terminal: false, linked_work_request: null }, replayed: false }; },
     downloadAttachment: async () => ({ data: Uint8Array.from([1, 2, 3]), filename: "screen.png", mime_type: "image/png", size_bytes: 3 }),
   };
   const resolved = [];
   const handler = createSameOriginEnhancementReporterHandler({
-    apiUrl: "https://handrail.example/api/assistant-change-bridge/v1",
+    apiUrl: "https://handrail.example/api/enhancement-reporting/v1",
     projectId: "project-1",
     capabilityId: "capability-1",
     token: "secret",
@@ -61,7 +61,7 @@ test("handler requires an authenticated Known User session", async () => {
 test("default server transport stands alone without the MCP package", async () => {
   const calls = [];
   const handler = createSameOriginEnhancementReporterHandler({
-    apiUrl: "https://handrail.example/api/assistant-change-bridge/v1",
+    apiUrl: "https://handrail.example/api/enhancement-reporting/v1",
     projectId: "project-1",
     capabilityId: "capability-1",
     token: "server-secret",
@@ -70,14 +70,14 @@ test("default server transport stands alone without the MCP package", async () =
       calls.push({ url, init });
       return new Response(JSON.stringify({
         contract_version: "v1",
-        request_id: "bridge-1",
+        request_id: "enhancement-1",
         dismissed_at: "2026-08-14T14:00:00.000Z",
         underlying_request_preserved: true,
       }), { status: 200, headers: { "content-type": "application/json" } });
     },
   });
 
-  const response = await handler(new Request("https://app.example/api/handrail-enhancements/requests/bridge-1/dismiss", {
+  const response = await handler(new Request("https://app.example/api/handrail-enhancements/requests/enhancement-1/dismiss", {
     method: "POST",
     headers: { "content-type": "application/json", origin: "https://app.example" },
     body: "{}",
@@ -86,7 +86,7 @@ test("default server transport stands alone without the MCP package", async () =
   assert.equal(response.status, 200);
   assert.equal((await response.json()).underlying_request_preserved, true);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, "https://handrail.example/api/assistant-change-bridge/v1/requests/bridge-1/dismiss");
+  assert.equal(calls[0].url, "https://handrail.example/api/enhancement-reporting/v1/requests/enhancement-1/dismiss");
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.body, "{}");
   assert.equal(calls[0].init.headers.authorization, "Bearer server-secret");
@@ -94,7 +94,7 @@ test("default server transport stands alone without the MCP package", async () =
   assert.equal(calls[0].init.headers["x-handrail-application-session"], "known-user-session");
 });
 
-test("handler overwrites raw execution fields and forwards only enhancement checkbox requests", async () => {
+test("handler strips every browser-supplied execution field and forwards intake only", async () => {
   const { handler, calls } = setup();
   const response = await handler(new Request("https://app.example/api/handrail-enhancements", {
     method: "POST",
@@ -115,17 +115,17 @@ test("handler overwrites raw execution fields and forwards only enhancement chec
   const payload = calls[0][1];
   assert.equal(payload.submission_kind, "enhancement");
   assert.equal(payload.source, "web_enhancement_reporter");
-  assert.equal(payload.requested_delivery_ceiling, "work_request");
-  assert.equal(payload.run_codex, false);
-  assert.equal(payload.auto_deploy_env, null);
-  assert.deepEqual(payload.automation_requests, { run_work_request: true });
+  assert.equal("requested_delivery_ceiling" in payload, false);
+  assert.equal("run_codex" in payload, false);
+  assert.equal("auto_deploy_env" in payload, false);
+  assert.equal("automation_requests" in payload, false);
   assert.equal(payload.reporter_sdk.package, "@handrail/enhancement-reporter");
 });
 
 test("handler validates and forwards report-scoped notification consent", async () => {
   const { handler, calls } = setup();
   const response = await handler(new Request(
-    "https://app.example/api/handrail-enhancements/requests/bridge-1/subscription",
+    "https://app.example/api/handrail-enhancements/requests/enhancement-1/subscription",
     {
       method: "POST",
       headers: { "content-type": "application/json", origin: "https://app.example" },
@@ -138,7 +138,7 @@ test("handler validates and forwards report-scoped notification consent", async 
   ));
   assert.equal(response.status, 201);
   assert.deepEqual(calls[0], ["subscribe", {
-    request_id: "bridge-1",
+    request_id: "enhancement-1",
     reporter_notification: {
       notify_on_resolution: true,
       consent_version: "v1",
@@ -160,25 +160,25 @@ test("history controls and image downloads remain on the authenticated same-orig
     sort: "oldest",
     visibility: "dismissed",
   }]);
-  const image = await handler(new Request("https://app.example/api/handrail-enhancements/requests/bridge-1/attachments/image-1"));
+  const image = await handler(new Request("https://app.example/api/handrail-enhancements/requests/enhancement-1/attachments/image-1"));
   assert.equal(image.status, 200);
   assert.equal(image.headers.get("content-type"), "image/png");
   assert.deepEqual([...new Uint8Array(await image.arrayBuffer())], [1, 2, 3]);
-  const dismissed = await handler(new Request("https://app.example/api/handrail-enhancements/requests/bridge-1/dismiss", {
+  const dismissed = await handler(new Request("https://app.example/api/handrail-enhancements/requests/enhancement-1/dismiss", {
     method: "POST",
     headers: { "content-type": "application/json", origin: "https://app.example" },
     body: "{}",
   }));
   assert.equal(dismissed.status, 200);
   assert.equal((await dismissed.json()).underlying_request_preserved, true);
-  assert.deepEqual(calls.at(-1), ["dismiss", { request_id: "bridge-1" }]);
-  const restored = await handler(new Request("https://app.example/api/handrail-enhancements/requests/bridge-1/dismiss", {
+  assert.deepEqual(calls.at(-1), ["dismiss", { request_id: "enhancement-1" }]);
+  const restored = await handler(new Request("https://app.example/api/handrail-enhancements/requests/enhancement-1/dismiss", {
     method: "DELETE",
     headers: { origin: "https://app.example" },
   }));
   assert.equal(restored.status, 200);
   assert.equal((await restored.json()).dismissed, false);
-  assert.deepEqual(calls.at(-1), ["restore", { request_id: "bridge-1" }]);
+  assert.deepEqual(calls.at(-1), ["restore", { request_id: "enhancement-1" }]);
   const cleared = await handler(new Request("https://app.example/api/handrail-enhancements/requests/dismiss-succeeded", {
     method: "POST",
     headers: { "content-type": "application/json", origin: "https://app.example" },

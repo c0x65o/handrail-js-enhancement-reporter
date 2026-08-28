@@ -8,11 +8,10 @@ import {
   type EnhancementReporterStyle,
 } from "@handrail/enhancement-reporter/react";
 import type {
-  EnhancementBridgeClient,
   EnhancementTransportClient,
 } from "@handrail/enhancement-reporter/server";
 
-const transportCompatibility: EnhancementBridgeClient | EnhancementTransportClient | null = null;
+const transportCompatibility: EnhancementTransportClient | null = null;
 
 const reporter = createEnhancementReporter({ endpoint: "/api/handrail-enhancements" });
 const configuredVersion: string | undefined = reporter.appVersion;

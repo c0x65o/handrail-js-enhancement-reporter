@@ -2,7 +2,7 @@
 
 Authenticated, web-only customer enhancement requests for Handrail. The package provides a browser client, a ready-to-use React dialog, and a framework-neutral same-origin server handler with its own narrow Handrail REST transport. It does not require `@handrail/mcp`.
 
-Current releases apply the enhancement-specific Default, User, or Full Access matrix. Pending stays non-executing, Ask renders the Start work checkbox, and Always applies automatically. Production is decided from the submitted priority and Handrail's configured maximum source-change risk, followed by the normal Ship deployment gates. Every request stays scoped to the authenticated Known User who submitted it.
+Every submission creates a first-class Project Management Enhancement and starts a read-only AI assessment when that runtime option is enabled. Assessment can gather repository evidence, propose acceptance criteria and QA, and assess source-change risk, but it cannot edit source, commit, implement, or deploy. Handrail staff explicitly accept a proposal and authorize implementation later. Every request stays scoped to the authenticated Known User who submitted it.
 
 ## Install
 
@@ -24,9 +24,9 @@ package directories, or local file dependencies. Maintenance compares the
 resolved Git commit with this repository and can move every installed project
 to the same current revision through its controlled update plan.
 
-The enhancement reporter stands on its own; neither the generic Assistant Change Bridge product surface nor `@handrail/mcp` is an application integration dependency. The browser entry never accepts or transmits a Handrail transport credential. Mount the server handler on the same origin, behind your normal application authentication boundary, and keep the transport credential in server-only environment variables.
+The enhancement reporter has a dedicated first-class Enhancement Reporting API and capability; `@handrail/mcp` is not an application integration dependency. The browser entry never accepts or transmits a Handrail transport credential. Mount the server handler on the same origin, behind your normal application authentication boundary, and keep the transport credential in server-only environment variables.
 
-Handrail's **Enhancement Automation** setup provisions this transport automatically. Generic assistant actions and their user assignments may remain disabled. New integrations should use the enhancement-specific runtime names below; Handrail also emits the legacy `HANDRAIL_ASSISTANT_BRIDGE_*` names so existing applications continue to work.
+Handrail provisions the `enhancement_reporting` capability against one exact server runtime and injects only the enhancement-specific variables below. It is independent from assistant features and credentials.
 
 ## Server route
 
@@ -102,7 +102,7 @@ provided by `EnhancementReporterProvider` (or to an explicit `client` prop).
 The compact, wide desktop dialog mirrors Handrail's packaged bug reporter. The
 request form and history share one bounded height so the shell stays stable as
 users switch tabs, while the priority selector sits beside an **Attached context** panel,
-with notifications and policy-derived automation grouped into the same side
+with notifications grouped into the same side
 rail. The context panel shows the current route, page title, application
 version, and viewport values that the client will submit; no build field is
 shown in the packaged form.
@@ -173,9 +173,9 @@ mail. The email includes an unsubscribe link. Set `notificationsEnabled: false` 
 legacy `reporterEmail` option is ignored and deprecated for source
 compatibility.
 
-When Work Request changes are configured as **Ask**, the dialog renders its checkbox. The reporter never asks the customer to choose staging or production. **Always** starts work without a checkbox; Handrail separately compares the submitted priority and assessed source-change risk before production can join Ship when idle.
+The dialog never asks the customer to authorize work or choose a deployment target. Submission authority is intake-only. Handrail evaluates the accepted assessment against the current project policy when staff later choose **Approve and implement**.
 
-Every verified Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin policy route before rendering navigation, and every verified user receives the **My requests** tab automatically. The tab lists only requests owned by the current authenticated principal, and returned attachment URLs pass through the same principal-scoped route. Enhancement Automation Default/User/Full Access tiers control automation policy only; applications do not need to assign each new user merely to enable owned history.
+Every verified Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin discovery route before rendering navigation, and every verified user receives the **My requests** tab automatically. The tab lists only requests owned by the current authenticated principal, and returned attachment URLs pass through the same principal-scoped route. Known User roles affect later Handrail authorization decisions; they never turn SDK submission into implementation authority.
 
 **My requests** initially loads the 10 newest active requests and offers **Show
 more** for older bounded pages. When discovery advertises them, the packaged UI
@@ -252,5 +252,5 @@ function SuggestionForm() {
 - Browser transport is same-origin only and always sends `credentials: "same-origin"`.
 - The application resolves a session token afresh for every request; no anonymous or static-user fallback exists.
 - Handrail resolves the session through Known Users and scopes submit, list, lookup, attachment, dismissal, restoration, bulk history clearing, cancellation, and release status to that principal.
-- Server code overwrites raw delivery and automation fields. It forwards only the reporter's strict checkbox request object, and Handrail intersects those choices with the authenticated user's enhancement-specific matrix.
+- Server code allowlists intake fields and drops browser-supplied implementation, Codex, commit, CI, and deployment authority.
 - Handrail enhancement transport credentials remain server-only.

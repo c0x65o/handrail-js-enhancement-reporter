@@ -38,10 +38,6 @@ export interface EnhancementRequestInput {
   };
   readonly idempotencyKey?: string;
   readonly conversationId?: string;
-  /** Customer choices rendered only for actions whose current policy is Ask. */
-  readonly automationRequests?: {
-    readonly run_work_request?: boolean;
-  };
   /** Explicit report-scoped consent for one email after the fix reaches the report environment. */
   readonly notification?: EnhancementNotificationPreference;
 }
@@ -520,9 +516,6 @@ export function createEnhancementReporter(config: EnhancementReporterConfig = {}
             viewport: viewport || null,
           },
           reporter_sdk: reporterIdentity("browser"),
-          automation_requests: {
-            run_work_request: input.automationRequests?.run_work_request === true,
-          },
           attachments: images.map(({ mime_type: _mime, size_bytes: _size, ...image }) => image),
         }),
       });
