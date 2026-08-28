@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { createSameOriginEnhancementReporterHandler } from "../dist/server.js";
+import {
+  createRequestScopedEnhancementReporter,
+  createSameOriginEnhancementReporterHandler,
+} from "../dist/server.js";
 
 test("package has no MCP install or runtime dependency", async () => {
   const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -56,6 +59,33 @@ test("handler requires an authenticated Known User session", async () => {
   const response = await handler(new Request("https://app.example/api/handrail-enhancements"));
   assert.equal(response.status, 401);
   assert.equal((await response.json()).code, "enhancement_user_authentication_required");
+});
+
+test("request-scoped transport requires and forwards only the current Known User session", async () => {
+  const calls = [];
+  const factory = createRequestScopedEnhancementReporter({
+    apiUrl: "https://handrail.example/api/enhancement-reporting/v1",
+    projectId: "project-1",
+    capabilityId: "capability-1",
+    token: "transport-secret",
+    resolveApplicationSessionToken: async (request) => request.session,
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({
+        contract_version: "v1",
+        enhancement_reporting: { enabled: true },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+  await assert.rejects(
+    () => factory.forRequest({ session: null }),
+    { code: "enhancement_user_authentication_required" },
+  );
+  const client = await factory.forRequest({ session: "fresh-session" });
+  await client.discover();
+  assert.equal(calls[0].init.headers["x-handrail-application-session"], "fresh-session");
+  assert.equal(calls[0].init.headers.authorization, "Bearer transport-secret");
+  assert.doesNotMatch(JSON.stringify(await client.discover()), /fresh-session|transport-secret/u);
 });
 
 test("default server transport stands alone without the MCP package", async () => {

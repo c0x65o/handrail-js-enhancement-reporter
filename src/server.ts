@@ -112,8 +112,22 @@ function assertTransportContract(payload: any, contractVersion: "v1"): any {
   return payload;
 }
 
-function defaultTransportClient<RequestType extends Request>(
-  config: SameOriginEnhancementReporterConfig<RequestType>,
+export interface EnhancementTransportConfig {
+  readonly apiUrl: string;
+  readonly projectId: string;
+  readonly capabilityId: string;
+  readonly token: string;
+  readonly contractVersion?: "v1";
+  readonly fetch?: typeof fetch;
+}
+
+/**
+ * Create a trusted server-side transport for one already-authenticated
+ * application session. The session and scoped credential are retained only by
+ * the returned request-local client and are never exposed in its public shape.
+ */
+export function createEnhancementTransportClient(
+  config: EnhancementTransportConfig,
   applicationSessionToken: string,
 ): EnhancementTransportClient {
   const apiUrl = transportApiUrl(config.apiUrl);
@@ -226,6 +240,53 @@ function defaultTransportClient<RequestType extends Request>(
   });
 }
 
+export type EnhancementSessionTokenResolver<RequestContext> = (
+  request: RequestContext,
+) => string | null | undefined | Promise<string | null | undefined>;
+
+export interface RequestScopedEnhancementReporterConfig<RequestContext>
+  extends EnhancementTransportConfig {
+  readonly resolveApplicationSessionToken: EnhancementSessionTokenResolver<RequestContext>;
+}
+
+export interface RequestScopedEnhancementReporterFactory<RequestContext> {
+  forRequest(request: RequestContext): Promise<EnhancementTransportClient>;
+}
+
+/**
+ * Build request-local enhancement transports without mounting a browser proxy.
+ * This is intended for trusted server adapters such as the Handrail MCP
+ * connector. Missing sessions fail closed; static or caller-selected user IDs
+ * are not supported.
+ */
+export function createRequestScopedEnhancementReporter<RequestContext>(
+  config: RequestScopedEnhancementReporterConfig<RequestContext>,
+): RequestScopedEnhancementReporterFactory<RequestContext> {
+  if (typeof config.resolveApplicationSessionToken !== "function") {
+    throw new EnhancementTransportError(
+      "An authenticated application session resolver is required.",
+      "enhancement_user_authentication_required",
+      401,
+    );
+  }
+  return Object.freeze({
+    async forRequest(request: RequestContext) {
+      const sessionToken = clean(
+        await config.resolveApplicationSessionToken(request),
+        8_192,
+      );
+      if (!sessionToken) {
+        throw new EnhancementTransportError(
+          "An authenticated application user is required.",
+          "enhancement_user_authentication_required",
+          401,
+        );
+      }
+      return createEnhancementTransportClient(config, sessionToken);
+    },
+  });
+}
+
 function routeBasePath(value: unknown): string {
   const path = clean(value || "/api/handrail-enhancements", 2_000).replace(/\/+$/u, "");
   if (!path.startsWith("/") || path.startsWith("//") || path.includes("?") || path.includes("#")) {
@@ -311,7 +372,7 @@ export function createSameOriginEnhancementReporterHandler<RequestType extends R
 ): (request: RequestType) => Promise<Response> {
   if (typeof config.resolveApplicationSessionToken !== "function") throw new Error("resolveApplicationSessionToken is required");
   const basePath = routeBasePath(config.routeBasePath);
-  const createClient = config.createClient || ((sessionToken: string) => defaultTransportClient(config, sessionToken));
+  const createClient = config.createClient || ((sessionToken: string) => createEnhancementTransportClient(config, sessionToken));
 
   return async (request: RequestType): Promise<Response> => {
     if (config.enabled === false) return json(404, { error: "Enhancement reporting is disabled.", code: "enhancement_reporting_disabled" });

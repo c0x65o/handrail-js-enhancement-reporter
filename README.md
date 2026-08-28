@@ -56,6 +56,12 @@ export const POST = handler;
 
 The handler rejects missing Known User sessions and cross-site requests. It forwards neither cookies nor application authorization headers. Keep the route behind your framework's normal CSRF/session protections as well.
 
+Trusted server integrations such as the Handrail MCP connector may use
+`createRequestScopedEnhancementReporter` from the server entry point instead of
+mounting a browser route. Its resolver is called for every request context and
+must return the current opaque application session. The factory fails closed
+when no session is available and never accepts a caller-selected user ID.
+
 ## Choose an integration path
 
 The SDK has two independent adoption paths:
