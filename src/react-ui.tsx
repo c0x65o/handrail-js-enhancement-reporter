@@ -315,7 +315,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     width: "min(1560px, calc(100vw - 24px))",
-    height: "auto",
+    height: "min(720px, calc(100dvh - 16px))",
     maxHeight: "calc(100vh - 16px)",
     boxSizing: "border-box",
     overflow: "hidden",
@@ -328,9 +328,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 13,
     lineHeight: 1.4,
     isolation: "isolate",
-  },
-  historyDialog: {
-    height: "min(960px, calc(100dvh - 16px))",
   },
   header: {
     display: "flex",
@@ -606,6 +603,18 @@ function revokePreview(image: SelectedImage, previews: Set<string>) {
     URL.revokeObjectURL(image.preview);
   }
   previews.delete(image.preview);
+}
+
+function decrementHistorySummary(
+  summary: EnhancementHistorySummary | null,
+  statusGroup: EnhancementHistoryStatusGroup,
+): EnhancementHistorySummary | null {
+  if (!summary) return null;
+  return {
+    ...summary,
+    total: Math.max(0, summary.total - 1),
+    [statusGroup]: Math.max(0, summary[statusGroup] - 1),
+  };
 }
 
 function HistoryRow({
@@ -956,6 +965,8 @@ export function EnhancementReporterDialog({
   };
 
   const archiveRequest = async (requestId: string) => {
+    const request = history.find((candidate) => candidate.id === requestId);
+    const query = currentHistoryQuery();
     setBusyHistoryId(requestId);
     setError(null);
     try {
@@ -963,11 +974,15 @@ export function EnhancementReporterDialog({
       if (historyVisibility === "active") {
         setHistory((current) => current.filter((request) => request.id !== requestId));
         setHistoryTotal((current) => Math.max(0, current - 1));
+        if (request) {
+          setHistorySummary((current) => decrementHistorySummary(current, request.status_group));
+        }
       } else {
         setHistory((current) => current.map((request) => request.id === requestId
           ? { ...request, dismissed: true }
           : request));
       }
+      await loadHistory(0, query);
     } catch (caught) {
       setError(caught instanceof Error
         ? caught.message
@@ -978,6 +993,8 @@ export function EnhancementReporterDialog({
   };
 
   const restoreRequest = async (requestId: string) => {
+    const request = history.find((candidate) => candidate.id === requestId);
+    const query = currentHistoryQuery();
     setBusyHistoryId(requestId);
     setError(null);
     try {
@@ -985,11 +1002,15 @@ export function EnhancementReporterDialog({
       if (historyVisibility === "dismissed") {
         setHistory((current) => current.filter((request) => request.id !== requestId));
         setHistoryTotal((current) => Math.max(0, current - 1));
+        if (request) {
+          setHistorySummary((current) => decrementHistorySummary(current, request.status_group));
+        }
       } else {
         setHistory((current) => current.map((request) => request.id === requestId
           ? { ...request, dismissed: false, dismissed_at: null }
           : request));
       }
+      await loadHistory(0, query);
     } catch (caught) {
       setError(caught instanceof Error
         ? caught.message
@@ -1150,7 +1171,7 @@ export function EnhancementReporterDialog({
       aria-describedby={descriptionId}
       aria-busy={submitting || discovering}
       tabIndex={-1}
-      style={{ ...styles.dialog, ...(tab === "history" ? styles.historyDialog : {}) }}
+      style={styles.dialog}
       onPaste={onPaste}
       onKeyDown={onDialogKeyDown}
     >

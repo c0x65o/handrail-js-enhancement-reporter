@@ -100,8 +100,8 @@ also exported separately for an app-owned launcher or menu. Both delegate
 discovery, submission, subscriptions, and history mutations to the same client
 provided by `EnhancementReporterProvider` (or to an explicit `client` prop).
 The compact, wide desktop dialog mirrors Handrail's packaged bug reporter. The
-request form sizes to its content instead of reserving the full viewport, while
-the priority selector sits beside an **Attached context** panel,
+request form and history share one bounded height so the shell stays stable as
+users switch tabs, while the priority selector sits beside an **Attached context** panel,
 with notifications and policy-derived automation grouped into the same side
 rail. The context panel shows the current route, page title, application
 version, and viewport values that the client will submit; no build field is
@@ -181,8 +181,9 @@ Every verified Known User may submit while the runtime enhancement switch is ena
 more** for older bounded pages. When discovery advertises them, the packaged UI
 also exposes search, status, sort, and Active/Archived/All visibility filters,
 plus individual **Archive** and **Restore** actions. It deliberately provides
-no bulk clear action. The
-tracker uses the available dialog height and changes its dense desktop table to
+no bulk clear action. Archive and restore update the visible status counts
+immediately and then refresh the current server-backed page. The
+tracker scrolls within the stable dialog and changes its dense desktop table to
 compact cards before the six-column layout can overflow; each row can expand to
 show the request description and attachment names. Each row
 summarizes the strongest release evidence available, preferring production and

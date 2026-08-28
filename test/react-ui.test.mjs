@@ -138,7 +138,7 @@ test("appearance, responsive dialog semantics, focus containment, Escape, overla
     assert.ok(dialog.props["aria-labelledby"]);
     assert.ok(dialog.props["aria-describedby"]);
     assert.equal(dialog.props.style.width, "min(1560px, calc(100vw - 24px))");
-    assert.equal(dialog.props.style.height, "auto");
+    assert.equal(dialog.props.style.height, "min(720px, calc(100dvh - 16px))");
     assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-report-layout": "true" }).length, 1);
     assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-context": "true" }).length, 1);
     const renderedDialog = JSON.stringify(renderer.toJSON());
@@ -273,7 +273,7 @@ test("Default Known Users receive capability-driven history without automation a
   await act(async () => tabs[0].props.onKeyDown({ key: "End", preventDefault: () => { prevented = true; } }));
   assert.equal(prevented, true);
   assert.equal(renderer.root.findAllByProps({ role: "tabpanel" }).length, 1);
-  assert.equal(renderer.root.findByProps({ role: "dialog" }).props.style.height, "min(960px, calc(100dvh - 16px))");
+  assert.equal(renderer.root.findByProps({ role: "dialog" }).props.style.height, "min(720px, calc(100dvh - 16px))");
   assert.equal(renderer.root.findByProps({ "data-handrail-enhancement-content": "history" }).props.style.overflow, "hidden");
   assert.equal(renderer.root.findByProps({ role: "table" }).props["aria-label"], "Enhancement requests");
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 1);
@@ -294,5 +294,62 @@ test("Default Known Users receive capability-driven history without automation a
   assert.deepEqual(listCalls.at(-1), { limit: 10, offset: 0, search: "filters", statusGroup: "succeeded", sort: "newest", visibility: "all" });
   await act(async () => renderer.root.findByProps({ "aria-label": "Restore Saved filters" }).props.onClick());
   assert.deepEqual(restoreCalls, ["enh-1"]);
+  await act(async () => renderer.unmount());
+});
+
+test("archiving refreshes enhancement filter counts and refills the current page", async () => {
+  let archived = false;
+  const listCalls = [];
+  const request = {
+    id: "enh-active", title: "Saved views", status: "succeeded", status_group: "succeeded",
+    description: "Let me save and reuse a view.", created_at: "2026-08-01T00:00:00Z",
+    terminal: true, dismissed: false, dismissed_at: null,
+  };
+  const sdk = client(async () => discovery({
+    history: {
+      enabled: true,
+      search: false,
+      status_groups: ["succeeded"],
+      sorts: ["newest"],
+      visibilities: ["active", "dismissed"],
+      restore: true,
+      dismiss_succeeded: true,
+    },
+  }));
+  sdk.list = async (options) => {
+    listCalls.push(options);
+    return {
+      contract_version: "v1",
+      requests: archived ? [] : [request],
+      pagination: { limit: options.limit, offset: 0, total: archived ? 0 : 1, has_more: false },
+      summary: { total: archived ? 0 : 1, needs_attention: 0, in_progress: 0, succeeded: archived ? 0 : 1, closed: 0 },
+    };
+  };
+  sdk.dismiss = async (id) => {
+    assert.equal(id, "enh-active");
+    archived = true;
+    return { contract_version: "v1", request_id: id, dismissed: true, dismissed_at: "2026-08-27T00:00:00Z", underlying_request_preserved: true };
+  };
+
+  let renderer;
+  await act(async () => { renderer = create(createElement(EnhancementReporterDialog, { open: true, onClose() {}, client: sdk })); });
+  await act(async () => {
+    renderer.root.findAllByProps({ role: "tab" })[1].props.onClick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  let statusButtons = renderer.root.findByProps({ "aria-label": "Enhancement status" }).findAllByType("button");
+  assert.equal(statusButtons[0].findByType("span").children.join(""), "1");
+  assert.equal(statusButtons[1].findByType("span").children.join(""), "1");
+
+  await act(async () => {
+    renderer.root.findByProps({ "aria-label": "Archive Saved views" }).props.onClick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  assert.equal(listCalls.length, 2);
+  statusButtons = renderer.root.findByProps({ "aria-label": "Enhancement status" }).findAllByType("button");
+  assert.equal(statusButtons[0].findByType("span").children.join(""), "0");
+  assert.equal(statusButtons[1].findByType("span").children.join(""), "0");
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 0);
   await act(async () => renderer.unmount());
 });
