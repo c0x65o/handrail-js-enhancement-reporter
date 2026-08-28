@@ -99,6 +99,9 @@ export function AccountMenu() {
 also exported separately for an app-owned launcher or menu. Both delegate
 discovery, submission, subscriptions, and history mutations to the same client
 provided by `EnhancementReporterProvider` (or to an explicit `client` prop).
+Equivalent inline configuration objects do not recreate that client on every
+parent render; changing an actual configuration field still creates the new
+reporter instance.
 The compact, wide desktop dialog mirrors Handrail's packaged bug reporter. The
 request form and history share one bounded height so the shell stays stable as
 users switch tabs, while the priority selector sits beside an **Attached context** panel,
@@ -159,6 +162,16 @@ not depend on color alone.
 
 The dialog supports file upload, direct image paste from the clipboard, and drag and drop onto the screenshot area. Accepted formats are PNG, JPEG, GIF, and WebP, with a maximum of 4 images, 5 MiB per image, and 15 MiB total. Both the browser and Handrail validate image signatures and limits.
 
+### Host CSP for image previews
+
+The packaged React UI renders selected, pasted, and dropped local images from
+browser `blob:` URLs. If the host application sends a Content Security Policy,
+allow those previews in `img-src`; a typical same-origin directive is
+`img-src 'self' data: blob:`. Add `blob:` only to `img-src`, not `script-src` or
+a broad `default-src`. Test with the production-equivalent policy and verify
+that the thumbnail actually decodes and renders—a filename or attachment card
+alone does not prove the preview loaded.
+
 The packaged dialog shows its unchecked **Email me when this is fixed** control
 only when policy discovery confirms that the current session
 is a verified Known User with a valid configured Display/email value. It shows
@@ -182,7 +195,11 @@ more** for older bounded pages. When discovery advertises them, the packaged UI
 also exposes search, status, sort, and Active/Archived/All visibility filters,
 plus individual **Archive** and **Restore** actions. It deliberately provides
 no bulk clear action. Archive and restore update the visible status counts
-immediately and then refresh the current server-backed page. The
+immediately and then refresh the current server-backed page. Accepted
+submissions are also inserted into an already loaded matching newest page, with
+the badge and summary updated immediately. **My requests** then revalidates its
+current query when it opens, and slower superseded filter responses are ignored.
+The
 tracker scrolls within the stable dialog and changes its dense desktop table to
 compact cards before the six-column layout can overflow; each row can expand to
 show the request description and attachment names. Each row

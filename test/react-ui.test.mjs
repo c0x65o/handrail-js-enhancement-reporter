@@ -353,3 +353,88 @@ test("archiving refreshes enhancement filter counts and refills the current page
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 0);
   await act(async () => renderer.unmount());
 });
+
+test("a submitted enhancement immediately invalidates and refreshes previously loaded history", async () => {
+  const requests = [{
+    id: "enh-existing", title: "Existing request", description: "Already here.",
+    status: "running", status_group: "in_progress", terminal: false,
+    dismissed: false, dismissed_at: null, created_at: "2026-08-26T00:00:00Z",
+  }];
+  const listCalls = [];
+  const sdk = client(async () => discovery({
+    history: {
+      enabled: true,
+      search: true,
+      status_groups: ["needs_attention", "in_progress", "succeeded", "closed"],
+      sorts: ["newest", "oldest"],
+      visibilities: ["active", "dismissed", "all"],
+      restore: true,
+      dismiss_succeeded: true,
+    },
+  }));
+  sdk.list = async (options) => {
+    listCalls.push(options);
+    return {
+      contract_version: "v1",
+      requests: [...requests],
+      pagination: {
+        limit: options.limit,
+        offset: 0,
+        total: requests.length,
+        has_more: false,
+      },
+      summary: {
+        total: requests.length,
+        needs_attention: 0,
+        in_progress: requests.length,
+        succeeded: 0,
+        closed: 0,
+      },
+    };
+  };
+  sdk.submit = async (input) => {
+    const request = {
+      id: "enh-new", title: input.title, description: input.description,
+      status: "running", status_group: "in_progress", terminal: false,
+      dismissed: false, dismissed_at: null, created_at: "2026-08-27T00:00:00Z",
+    };
+    requests.unshift(request);
+    return { request, replayed: false };
+  };
+
+  let renderer;
+  await act(async () => {
+    renderer = create(createElement(EnhancementReporterDialog, {
+      open: true,
+      onClose() {},
+      client: sdk,
+    }));
+  });
+  await act(async () => {
+    renderer.root.findAllByProps({ role: "tab" })[1].props.onClick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.equal(listCalls.length, 1);
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 1);
+
+  await act(async () => renderer.root.findAllByProps({ role: "tab" })[0].props.onClick());
+  await act(async () => {
+    renderer.root.findByProps({ placeholder: "What should be improved?" }).props.onChange({
+      target: { value: "Newly submitted request" },
+    });
+    renderer.root.findByProps({
+      placeholder: "Describe the outcome you want. You can paste screenshots here.",
+    }).props.onChange({ target: { value: "It should appear without a manual refresh." } });
+  });
+  await act(async () => renderer.root.findByType("form").props.onSubmit({ preventDefault() {} }));
+  assert.equal(renderer.root.findByProps({ "aria-label": "2 total" }).children.join(""), "2");
+
+  await act(async () => {
+    renderer.root.findAllByProps({ role: "tab" })[1].props.onClick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.equal(listCalls.length, 2);
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 2);
+  assert.equal(renderer.root.findAllByProps({ "aria-label": "View Newly submitted request" }).length, 1);
+  await act(async () => renderer.unmount());
+});
