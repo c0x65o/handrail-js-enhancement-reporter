@@ -91,6 +91,7 @@ test("the React dialog captures pasted and dropped images once and preserves the
   });
   assert.equal(prevented, 1);
   assert.equal(renderer.root.findAll((node) => node.props["aria-label"] === "Remove clipboard.png").length, 1);
+  assert.equal(renderer.root.findByProps({ "data-handrail-enhancement-image-preview": "true" }).props.style.height, 110);
 
   const dropzone = renderer.root.findByProps({ "data-handrail-enhancement-image-dropzone": "true" });
   const dropped = pastedPng("dropped.png");

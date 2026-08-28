@@ -104,7 +104,9 @@ parent render; changing an actual configuration field still creates the new
 reporter instance.
 The compact, wide desktop dialog mirrors Handrail's packaged bug reporter. The
 request form and history share one bounded height so the shell stays stable as
-users switch tabs, while the priority selector sits beside an **Attached context** panel,
+users switch tabs. On desktop the outcome field and image area expand to use
+the remaining form height instead of leaving an empty lower region, while the
+priority selector sits beside an **Attached context** panel,
 with notifications grouped into the same side
 rail. The context panel shows the current route, page title, application
 version, and viewport values that the client will submit; no build field is

@@ -142,7 +142,24 @@ const RESPONSIVE_DIALOG_CSS = `
   [data-handrail-enhancement-history-cell="action"] { grid-column: 2; grid-row: 1 / span 2; }
 }
 @media (max-width: 860px) {
-  [data-handrail-enhancement-report-layout="true"] { grid-template-columns: minmax(0, 1fr) !important; }
+  [data-handrail-enhancement-report-panel="true"],
+  [data-handrail-enhancement-report-form="true"] {
+    display: block !important;
+    flex: none !important;
+    min-height: auto !important;
+  }
+  [data-handrail-enhancement-report-layout="true"] {
+    flex: none !important;
+    min-height: auto !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  [data-handrail-enhancement-report-details="true"] {
+    display: block !important;
+    min-height: auto !important;
+  }
+  [data-handrail-enhancement-expanding-field="true"] textarea {
+    height: auto !important;
+  }
   [data-handrail-enhancement-context="true"] { order: -1; }
 }
 @media (max-width: 560px) {
@@ -401,6 +418,9 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
   },
   drop: {
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 132,
     border: "1px dashed var(--handrail-enhancement-border)",
     borderRadius: 9,
     padding: 10,
@@ -1234,14 +1254,14 @@ export function EnhancementReporterDialog({
           {notificationNotice && <> {notificationNotice}</>}
         </div>}
 
-        {tab === "new" ? <div id={newPanelId} role={historyAvailable ? "tabpanel" : undefined} aria-labelledby={historyAvailable ? newTabId : undefined} style={{ flex: "1 0 auto" }}>
+        {tab === "new" ? <div id={newPanelId} role={historyAvailable ? "tabpanel" : undefined} aria-labelledby={historyAvailable ? newTabId : undefined} data-handrail-enhancement-report-panel="true" style={{ display: "flex", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
           {discovering && <div role="status" style={{ marginBottom: 12, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>Checking available options…</div>}
-          <form onSubmit={(event) => void submit(event)}>
+          <form data-handrail-enhancement-report-form="true" onSubmit={(event) => void submit(event)} style={{ display: "flex", width: "100%", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
             <span role="status" aria-live="polite" style={styles.visuallyHidden}>
               {submitting ? "Submitting your enhancement request…" : ""}
             </span>
-            <div data-handrail-enhancement-report-layout="true" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.8fr) minmax(280px, .72fr)", gap: 16, alignItems: "start" }}>
-              <section aria-label="Enhancement details">
+            <div data-handrail-enhancement-report-layout="true" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.8fr) minmax(280px, .72fr)", gap: 16, minHeight: 0, flex: "1 1 auto", alignItems: "stretch" }}>
+              <section data-handrail-enhancement-report-details="true" aria-label="Enhancement details" style={{ display: "grid", gridTemplateRows: "auto minmax(150px, 1.3fr) minmax(132px, 1fr)", minHeight: 0 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(150px, .3fr)", gap: 12 }}>
                   <label style={styles.label}>
                     Short title
@@ -1254,9 +1274,9 @@ export function EnhancementReporterDialog({
                     </select>
                   </label>
                 </div>
-                <label style={styles.label}>
+                <label data-handrail-enhancement-expanding-field="true" style={{ ...styles.label, gridTemplateRows: "auto minmax(0, 1fr)", minHeight: 0 }}>
                   Desired outcome
-                  <textarea style={{ ...styles.input, minHeight: 96, resize: "vertical" }} maxLength={20_000} required value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the outcome you want. You can paste screenshots here." />
+                  <textarea style={{ ...styles.input, height: "100%", minHeight: 96, resize: "vertical" }} maxLength={20_000} required value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the outcome you want. You can paste screenshots here." />
                 </label>
                 <div
               data-handrail-enhancement-image-dropzone="true"
@@ -1266,6 +1286,7 @@ export function EnhancementReporterDialog({
               onDrop={onImageDrop}
               style={{
                 ...styles.drop,
+                justifyContent: images.length > 0 ? "flex-start" : "center",
                 ...(dragActive ? { borderColor: "var(--handrail-enhancement-accent)", color: "var(--handrail-enhancement-accent)" } : {}),
               }}
             >
@@ -1276,14 +1297,14 @@ export function EnhancementReporterDialog({
                     <input aria-label="Choose enhancement images" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange={onFiles} style={{ display: "none" }} />
                   </label>
                   {images.length > 0 && <div style={styles.imageGrid}>{images.map((image) => <div key={image.id} style={styles.imageCard}>
-                    {image.preview && <img src={image.preview} alt="" style={{ width: "100%", height: 76, objectFit: "cover", display: "block" }} />}
+                    {image.preview && <img src={image.preview} alt="" data-handrail-enhancement-image-preview="true" style={{ width: "100%", height: 110, objectFit: "cover", display: "block" }} />}
                     <div title={image.name} style={{ padding: "7px 26px 7px 8px", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", fontSize: 11 }}>{image.name}</div>
                     <button type="button" aria-label={`Remove ${image.name}`} onClick={() => removeImage(image.id)} style={{ position: "absolute", top: 4, right: 4, width: 23, height: 23, padding: 0, border: 0, borderRadius: 12, cursor: "pointer", background: "rgba(15,23,42,.78)", color: "#fff" }}>×</button>
                   </div>)}</div>}
                 </div>
               </section>
 
-              <aside data-handrail-enhancement-context="true" aria-label="Attached context and options" style={{ display: "grid", gap: 10 }}>
+              <aside data-handrail-enhancement-context="true" aria-label="Attached context and options" style={{ display: "grid", alignSelf: "start", gap: 10 }}>
                 <section style={{ overflow: "hidden", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, background: "var(--handrail-enhancement-surface)" }}>
                   <h3 style={{ margin: 0, padding: "9px 12px", borderBottom: "1px solid var(--handrail-enhancement-border)", fontSize: 12 }}>Attached context</h3>
                   {([[
