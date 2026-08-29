@@ -151,6 +151,13 @@ with notifications grouped into the same side
 rail. The context panel shows the current route, page title, application
 version, and viewport values that the client will submit; no build field is
 shown in the packaged form.
+When discovery supplies a verified Known User role, the side rail also shows a
+compact **Your access** summary. It names the effective Requester, Contributor,
+or Maintainer role, the maximum automatic implementation risk, and the
+production threshold for the currently selected priority. This is personal,
+read-only context rather than the full project policy; changing Priority updates
+the summary, while final deployment remains subject to the separate project
+deployment policy.
 After Handrail accepts a request, the form is replaced by a dedicated thank-you
 screen rather than leaving submitted fields editable. It confirms whether
 email updates were enabled, keeps notification failure separate from request

@@ -26,9 +26,12 @@ import {
   type EnhancementHistoryStatusGroup,
   type EnhancementHistorySummary,
   type EnhancementHistoryVisibility,
+  type EnhancementAutomationRole,
   type EnhancementDeliveryMilestone,
   type EnhancementImageInput,
+  type EnhancementPriority,
   type EnhancementReporterClient,
+  type EnhancementReporterPolicy,
   type EnhancementRequestRecord,
   type EnhancementSubmissionResult,
 } from "./reporter";
@@ -832,7 +835,9 @@ export function EnhancementReporterDialog({
   const [tab, setTab] = useState<DialogTab>("new");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<"low" | "medium" | "high" | "urgent">("medium");
+  const [priority, setPriority] = useState<EnhancementPriority>("medium");
+  const [accessRole, setAccessRole] = useState<EnhancementAutomationRole | null>(null);
+  const [accessPolicy, setAccessPolicy] = useState<EnhancementReporterPolicy | null>(null);
   const [notifyOnResolution, setNotifyOnResolution] = useState(false);
   const [notificationAvailable, setNotificationAvailable] = useState(false);
   const [notificationRecipientHint, setNotificationRecipientHint] = useState<string | null>(null);
@@ -879,6 +884,11 @@ export function EnhancementReporterDialog({
     appVersion: resolvedAppVersion,
     viewport: typeof window !== "undefined" ? `${window.innerWidth}x${window.innerHeight}` : undefined,
   };
+  const automaticImplementationRisk = accessPolicy?.cells?.automatic_fix_max_risk;
+  const productionRisk = accessPolicy?.cells?.production_max_risk_by_priority?.[priority];
+  const riskThresholdLabel = (risk: string | undefined): string => risk === "none"
+    ? "not automatic"
+    : risk ? `up to ${risk} change risk` : "not available";
 
   const currentHistoryQuery = useCallback((): EnhancementHistoryListOptions => ({
     search: historySearch.trim() || undefined,
@@ -950,10 +960,21 @@ export function EnhancementReporterDialog({
     setNotifyOnResolution(false);
     setNotificationAvailable(false);
     setNotificationRecipientHint(null);
+    setAccessRole(null);
+    setAccessPolicy(null);
     setDiscovering(true);
     void client.discover().then((discovery) => {
       if (cancelled) return;
-      const capabilities = discovery?.enhancement_reporting?.history || null;
+      const reporting = discovery?.enhancement_reporting;
+      const capabilities = reporting?.history || null;
+      const accessTier = reporting?.access_level || reporting?.policy?.tier;
+      setAccessRole(reporting?.role
+        || (accessTier === "full_access"
+          ? "maintainer"
+          : accessTier === "user"
+            ? "contributor"
+            : accessTier === "default" ? "requester" : null));
+      setAccessPolicy(reporting?.policy || null);
       // Current discovery owns history through history.enabled. Fall back to
       // user_enabled only for servers that predate the history capability.
       const ownedHistoryEnabled = capabilities?.enabled === true
@@ -979,6 +1000,8 @@ export function EnhancementReporterDialog({
         setHistoryCapabilities(null);
         setNotificationAvailable(false);
         setNotificationRecipientHint(null);
+        setAccessRole(null);
+        setAccessPolicy(null);
       }
     }).finally(() => {
       if (!cancelled) setDiscovering(false);
@@ -1300,7 +1323,7 @@ export function EnhancementReporterDialog({
   };
 
   const shippedCount = historySummary?.shipped ?? historySummary?.succeeded ?? history.filter((request) => request.status === "completed").length;
-  const movingCount = historySummary?.building != null || historySummary?.assessing != null
+  const movingCount = historySummary && (historySummary.building != null || historySummary.assessing != null)
     ? (historySummary.building || 0) + (historySummary.assessing || 0)
     : historySummary?.in_progress ?? historyCountFor("in_progress");
   const planReadyCount = historySummary?.awaiting_team ?? history.filter((request) => request.status === "proposal_ready" || request.status === "backlog").length;
@@ -1505,6 +1528,16 @@ export function EnhancementReporterDialog({
                   </div>)}
                   <p style={{ margin: 0, padding: "8px 12px", color: "var(--handrail-enhancement-muted-text)", background: "var(--handrail-enhancement-surface-muted)", fontSize: 10 }}>Only context shown here is included with this request.</p>
                 </section>
+
+                {accessRole && <section data-handrail-enhancement-access-summary="true" style={{ overflow: "hidden", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, background: "var(--handrail-enhancement-surface)" }}>
+                  <h3 style={{ margin: 0, padding: "9px 12px", borderBottom: "1px solid var(--handrail-enhancement-border)", fontSize: 12 }}>Your access</h3>
+                  <div style={{ padding: "8px 12px", fontSize: 11 }}>
+                    <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}><span style={{ color: "var(--handrail-enhancement-muted-text)" }}>Role</span><strong>{displayLabel(accessRole)}</strong></span>
+                    {automaticImplementationRisk && <span style={{ display: "block", marginTop: 5, color: "var(--handrail-enhancement-muted-text)" }}>Automatic implementation: {riskThresholdLabel(automaticImplementationRisk)}</span>}
+                    {productionRisk && <span style={{ display: "block", marginTop: 2, color: "var(--handrail-enhancement-muted-text)" }}>Production eligibility for {displayLabel(priority)} priority: {riskThresholdLabel(productionRisk)}</span>}
+                  </div>
+                  <p style={{ margin: 0, padding: "8px 12px", color: "var(--handrail-enhancement-muted-text)", background: "var(--handrail-enhancement-surface-muted)", fontSize: 10 }}>Final deployment is evaluated separately under the project deployment policy.</p>
+                </section>}
 
                 {canNotify && <fieldset style={{ ...styles.fieldset, margin: 0 }}>
                   <legend style={{ padding: "0 5px", fontSize: 12, fontWeight: 700 }}>Updates</legend>

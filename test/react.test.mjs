@@ -8,6 +8,12 @@ const { EnhancementReporterDialog } = await import("../dist/react.js");
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+function renderedText(node) {
+  if (Array.isArray(node)) return node.map(renderedText).join("");
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  return node && typeof node === "object" ? renderedText(node.children || []) : "";
+}
+
 function pastedPng(name = "clipboard.png") {
   const image = new Blob([
     Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]),
@@ -26,7 +32,20 @@ test("the React dialog captures pasted and dropped images once and preserves the
     endpoint: "/api/handrail-enhancements",
     notificationsEnabled: true,
     discover: async () => ({
-      enhancement_reporting: { enabled: true, user_enabled: false, access_level: null, workflow: { assessment: "automatic_read_only", implementation_authority: false } },
+      enhancement_reporting: {
+        enabled: true,
+        user_enabled: false,
+        access_level: "user",
+        role: "contributor",
+        workflow: { assessment: "automatic_read_only", implementation_authority: false },
+        policy: {
+          tier: "user",
+          cells: {
+            automatic_fix_max_risk: "moderate",
+            production_max_risk_by_priority: { urgent: "moderate", high: "low", medium: "none", low: "none" },
+          },
+        },
+      },
       reporter_notifications: { available: true, recipient_hint: "r***@example.com", lifecycles: ["fixed"] },
     }),
     submit: async (input) => {
@@ -73,6 +92,14 @@ test("the React dialog captures pasted and dropped images once and preserves the
   assert.equal(renderer.root.findAllByProps({ role: "alert" }).length, 0);
 
   assert.equal(renderer.root.findAllByProps({ "aria-label": "Start work on this request" }).length, 0);
+  renderer.root.findByProps({ "data-handrail-enhancement-access-summary": "true" });
+  assert.match(renderedText(renderer.toJSON()), /Contributor/u);
+  assert.match(renderedText(renderer.toJSON()), /Automatic implementation: up to moderate change risk/u);
+  assert.match(renderedText(renderer.toJSON()), /Production eligibility for Medium priority: not automatic/u);
+  const priorityControl = renderer.root.findByProps({ "aria-label": "Enhancement priority" });
+  await act(async () => priorityControl.props.onChange({ target: { value: "high" } }));
+  assert.match(renderedText(renderer.toJSON()), /Production eligibility for High priority: up to low change risk/u);
+  await act(async () => priorityControl.props.onChange({ target: { value: "medium" } }));
   const notificationCheckbox = renderer.root.findByProps({
     "aria-label": "Email me when this enhancement is fixed",
   });
@@ -150,7 +177,7 @@ test("the React dialog hides notification consent without a Known User email", a
     endpoint: "/api/handrail-enhancements",
     notificationsEnabled: true,
     discover: async () => ({
-      enhancement_reporting: { enabled: true, user_enabled: false, access_level: null, policy: { cells: {} } },
+      enhancement_reporting: { enabled: true, user_enabled: false, access_level: "default", role: "requester", policy: { cells: {} } },
       reporter_notifications: { available: false, recipient_hint: null, lifecycles: ["fixed"] },
     }),
     submit: async () => { throw new Error("not used"); },
@@ -171,6 +198,9 @@ test("the React dialog hides notification consent without a Known User email", a
 
   assert.doesNotMatch(JSON.stringify(renderer.toJSON()), /Email me when this is fixed/u);
   assert.equal(renderer.root.findAllByProps({ type: "email" }).length, 0);
+  renderer.root.findByProps({ "data-handrail-enhancement-access-summary": "true" });
+  assert.match(renderedText(renderer.toJSON()), /Requester/u);
+  assert.doesNotMatch(renderedText(renderer.toJSON()), /Automatic implementation:/u);
   await act(async () => renderer.unmount());
 });
 

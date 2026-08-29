@@ -25,10 +25,14 @@ export interface NormalizedEnhancementImage {
   readonly source: EnhancementImageSource;
 }
 
+export type EnhancementPriority = "low" | "medium" | "high" | "urgent";
+export type EnhancementAutomationRole = "requester" | "contributor" | "maintainer";
+export type EnhancementAutomationRisk = "none" | "low" | "moderate" | "high";
+
 export interface EnhancementRequestInput {
   readonly title: string;
   readonly description: string;
-  readonly priority?: "low" | "medium" | "high" | "urgent";
+  readonly priority?: EnhancementPriority;
   readonly images?: readonly EnhancementImageInput[];
   readonly context?: {
     readonly route?: string;
@@ -102,6 +106,19 @@ export interface EnhancementHistoryCapabilities {
   readonly dismiss_succeeded: boolean;
 }
 
+export interface EnhancementReporterPolicy {
+  readonly tier?: string | null;
+  readonly cells?: {
+    readonly run_work_request?: string;
+    readonly automatic_fix_max_risk?: EnhancementAutomationRisk;
+    readonly production_max_risk_by_priority?: Readonly<
+      Partial<Record<EnhancementPriority, EnhancementAutomationRisk>>
+    >;
+  };
+  readonly production_change_verification_environment?: string | null;
+  readonly change_verification_environment?: string | null;
+}
+
 export interface EnhancementReporterDiscovery {
   readonly contract_version?: "v1";
   readonly enhancement_reporting?: {
@@ -110,9 +127,9 @@ export interface EnhancementReporterDiscovery {
     readonly user_enabled?: boolean;
     readonly access_level?: string | null;
     /** Canonical shared Known User role; access_level remains for compatibility. */
-    readonly role?: "requester" | "contributor" | "maintainer" | null;
+    readonly role?: EnhancementAutomationRole | null;
     readonly history?: EnhancementHistoryCapabilities;
-    readonly policy?: unknown;
+    readonly policy?: EnhancementReporterPolicy;
   };
   readonly reporter_notifications?: {
     readonly available?: boolean;
@@ -128,7 +145,7 @@ export interface EnhancementRequestRecord {
   readonly id: string;
   readonly title: string;
   readonly description?: string | null;
-  readonly priority?: "low" | "medium" | "high" | "urgent" | string;
+  readonly priority?: EnhancementPriority | string;
   readonly status: string;
   readonly status_group: EnhancementHistoryStatusGroup;
   readonly terminal: boolean;
