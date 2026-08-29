@@ -151,6 +151,10 @@ with notifications grouped into the same side
 rail. The context panel shows the current route, page title, application
 version, and viewport values that the client will submit; no build field is
 shown in the packaged form.
+After Handrail accepts a request, the form is replaced by a dedicated thank-you
+screen rather than leaving submitted fields editable. It confirms whether
+email updates were enabled, keeps notification failure separate from request
+success, and offers **Submit another enhancement** and **Done** actions.
 
 ### Appearance and accessibility
 

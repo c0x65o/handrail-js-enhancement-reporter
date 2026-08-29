@@ -245,6 +245,82 @@ test("an in-flight submission cannot be dismissed accidentally", async () => {
   await act(async () => renderer.unmount());
 });
 
+test("a successful submission replaces the form with the bug reporter style thank-you screen", async () => {
+  const sdk = client(async () => ({
+    ...discovery(),
+    reporter_notifications: {
+      available: true,
+      recipient_hint: "j***@example.com",
+    },
+  }));
+  sdk.submit = async () => ({
+    request: { id: "enh-success", title: "Saved views", status: "pending", terminal: false },
+    replayed: false,
+    notification_subscription: {
+      active: true,
+      created: true,
+      recipient_hint: "j***@example.com",
+      subscribed_at: "2026-08-28T00:00:00Z",
+    },
+    notification_warning: null,
+  });
+  let renderer;
+  await act(async () => {
+    renderer = create(createElement(EnhancementReporterDialog, {
+      open: true,
+      onClose() {},
+      client: sdk,
+    }));
+  });
+  await act(async () => {
+    renderer.root.findByProps({ placeholder: "What should be improved?" }).props.onChange({ target: { value: "Saved views" } });
+    renderer.root.findByProps({ placeholder: "Describe the outcome you want. You can paste screenshots here." }).props.onChange({ target: { value: "Keep my filters across sessions." } });
+    renderer.root.findByProps({ "aria-label": "Email me when this enhancement is fixed" }).props.onChange({ target: { checked: true } });
+  });
+  await act(async () => renderer.root.findByType("form").props.onSubmit({ preventDefault() {} }));
+
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-submission-success": "true" }).length, 1);
+  assert.equal(renderer.root.findAllByProps({ children: "Thanks for submitting this enhancement" }).length, 1);
+  assert.equal(renderer.root.findAll((node) => (
+    node.children.join("") === "Email updates are enabled for j***@example.com."
+  )).length, 1);
+  assert.equal(renderer.root.findAllByProps({ placeholder: "What should be improved?" }).length, 0);
+  assert.equal(renderer.root.findAllByType("textarea").length, 0);
+
+  await act(async () => renderer.root.findByProps({ children: "Submit another enhancement" }).props.onClick());
+  assert.equal(renderer.root.findByProps({ placeholder: "What should be improved?" }).props.value, "");
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-submission-success": "true" }).length, 0);
+  await act(async () => renderer.unmount());
+});
+
+test("a notification failure still shows the thank-you screen and confirms the enhancement was saved", async () => {
+  const sdk = client();
+  sdk.submit = async () => ({
+    request: { id: "enh-warning", title: "Saved views", status: "pending", terminal: false },
+    replayed: false,
+    notification_subscription: null,
+    notification_warning: "The enhancement was sent, but update notifications could not be enabled.",
+  });
+  let renderer;
+  await act(async () => {
+    renderer = create(createElement(EnhancementReporterDialog, {
+      open: true,
+      onClose() {},
+      client: sdk,
+    }));
+  });
+  await act(async () => {
+    renderer.root.findByProps({ placeholder: "What should be improved?" }).props.onChange({ target: { value: "Saved views" } });
+    renderer.root.findByProps({ placeholder: "Describe the outcome you want. You can paste screenshots here." }).props.onChange({ target: { value: "Keep my filters across sessions." } });
+  });
+  await act(async () => renderer.root.findByType("form").props.onSubmit({ preventDefault() {} }));
+
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-submission-success": "true" }).length, 1);
+  assert.match(renderer.root.findByProps({ role: "alert" }).children.join(""), /enhancement is saved/i);
+  assert.equal(renderer.root.findAllByProps({ placeholder: "What should be improved?" }).length, 0);
+  await act(async () => renderer.unmount());
+});
+
 test("Default Known Users receive capability-driven history without automation access", async () => {
   const listCalls = [];
   const restoreCalls = [];

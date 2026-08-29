@@ -29,6 +29,7 @@ import {
   type EnhancementImageInput,
   type EnhancementReporterClient,
   type EnhancementRequestRecord,
+  type EnhancementSubmissionResult,
 } from "./reporter";
 
 export type EnhancementReporterThemeMode = "auto" | "light" | "dark";
@@ -746,8 +747,7 @@ export function EnhancementReporterDialog({
   const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState<EnhancementRequestRecord | null>(null);
-  const [notificationNotice, setNotificationNotice] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState<EnhancementSubmissionResult | null>(null);
   const previewUrls = useRef(new Set<string>());
   const historySearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyLoadedRef = useRef(false);
@@ -842,7 +842,6 @@ export function EnhancementReporterDialog({
     setNotifyOnResolution(false);
     setNotificationAvailable(false);
     setNotificationRecipientHint(null);
-    setNotificationNotice(null);
     setDiscovering(true);
     void client.discover().then((discovery) => {
       if (cancelled) return;
@@ -1018,7 +1017,7 @@ export function EnhancementReporterDialog({
           ? { notification: { notifyOnResolution: true } }
           : {}),
       });
-      setSubmitted(result.request);
+      setSubmitted(result);
       historyStaleRef.current = true;
       if (historyLoadedRef.current) {
         const query = currentHistoryQuery();
@@ -1037,18 +1036,6 @@ export function EnhancementReporterDialog({
           ));
         }
       }
-      setNotificationNotice(
-        result.notification_warning
-        || (notifyOnResolution && result.notification_subscription?.active === true
-          ? "Email updates are enabled for this request."
-          : null),
-      );
-      setTitle("");
-      setDescription("");
-      setPriority("medium");
-      for (const image of images) revokePreview(image, previewUrls.current);
-      setImages([]);
-      setNotifyOnResolution(false);
     } catch (caught) {
       setError(caught instanceof Error
         ? caught.message
@@ -1118,8 +1105,21 @@ export function EnhancementReporterDialog({
 
   const canNotify = client.notificationsEnabled !== false && notificationAvailable;
   const variables = appearanceVariables(appearance);
+  const startAnotherRequest = () => {
+    setSubmitted(null);
+    setError(null);
+    setTitle("");
+    setDescription("");
+    setPriority("medium");
+    for (const image of images) revokePreview(image, previewUrls.current);
+    setImages([]);
+    setDragActive(false);
+    setNotifyOnResolution(false);
+  };
   const closeDialog = () => {
-    if (!submitting) onClose();
+    if (submitting) return;
+    if (submitted) startAnotherRequest();
+    onClose();
   };
 
   const selectTab = (next: DialogTab) => setTab(next);
@@ -1285,14 +1285,52 @@ export function EnhancementReporterDialog({
         </div>}
 
         {error && <div role="alert" aria-live="assertive" style={{ ...styles.status, background: "var(--handrail-enhancement-danger-surface)", color: "var(--handrail-enhancement-danger-text)" }}>{error}</div>}
-        {submitted && tab === "new" && <div role="status" aria-live="polite" style={{ ...styles.status, background: "var(--handrail-enhancement-success-surface)", color: "var(--handrail-enhancement-success-text)" }}>
-          Request submitted successfully. You can follow its progress from My requests.
-          {notificationNotice && <> {notificationNotice}</>}
-        </div>}
-
         {tab === "new" ? <div id={newPanelId} role={historyAvailable ? "tabpanel" : undefined} aria-labelledby={historyAvailable ? newTabId : undefined} data-handrail-enhancement-report-panel="true" style={{ display: "flex", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
-          {discovering && <div role="status" style={{ marginBottom: 12, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>Checking available options…</div>}
-          <form data-handrail-enhancement-report-form="true" onSubmit={(event) => void submit(event)} style={{ display: "flex", width: "100%", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
+          {submitted ? <section
+            data-handrail-enhancement-submission-success="true"
+            aria-labelledby={`${newPanelId}-success-heading`}
+            style={{
+              display: "grid",
+              alignContent: "center",
+              justifyItems: "center",
+              minHeight: "min(520px, 60vh)",
+              padding: "32px 18px",
+              textAlign: "center",
+            }}
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                display: "grid",
+                placeItems: "center",
+                width: 56,
+                height: 56,
+                borderRadius: "50%",
+                background: "var(--handrail-enhancement-success-surface)",
+                color: "var(--handrail-enhancement-success-text)",
+                fontSize: 30,
+                fontWeight: 800,
+              }}
+            >✓</div>
+            <h3 id={`${newPanelId}-success-heading`} style={{ margin: "18px 0 8px", fontSize: 24 }}>
+              Thanks for submitting this enhancement
+            </h3>
+            <p role="status" aria-live="polite" style={{ maxWidth: 560, margin: 0, color: "var(--handrail-enhancement-muted-text)", lineHeight: 1.55 }}>
+              Your request was sent to the product team. You can follow its progress from My requests.
+            </p>
+            {submitted.notification_subscription?.active === true && <div style={{ ...styles.status, maxWidth: 560, marginTop: 18, marginBottom: 0, background: "var(--handrail-enhancement-success-surface)", color: "var(--handrail-enhancement-success-text)" }}>
+              Email updates are enabled{submitted.notification_subscription.recipient_hint ? ` for ${submitted.notification_subscription.recipient_hint}` : ""}.
+            </div>}
+            {submitted.notification_warning && <div role="alert" style={{ ...styles.status, maxWidth: 560, marginTop: 18, marginBottom: 0, background: "var(--handrail-enhancement-danger-surface)", color: "var(--handrail-enhancement-danger-text)" }}>
+              Your enhancement is saved, but email updates could not be enabled.
+            </div>}
+            <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap", marginTop: 24 }}>
+              <button type="button" onClick={startAnotherRequest} style={buttonStyle("secondary")}>Submit another enhancement</button>
+              <button type="button" onClick={closeDialog} style={buttonStyle("primary")}>Done</button>
+            </div>
+          </section> : <>
+            {discovering && <div role="status" style={{ marginBottom: 12, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>Checking available options…</div>}
+            <form data-handrail-enhancement-report-form="true" onSubmit={(event) => void submit(event)} style={{ display: "flex", width: "100%", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
             <span role="status" aria-live="polite" style={styles.visuallyHidden}>
               {submitting ? "Submitting your enhancement request…" : ""}
             </span>
@@ -1367,7 +1405,8 @@ export function EnhancementReporterDialog({
               <button type="button" disabled={submitting} onClick={closeDialog} style={buttonStyle("secondary")}>Cancel</button>
               <button type="submit" disabled={submitting} style={{ ...buttonStyle("primary"), opacity: submitting ? 0.65 : 1 }}>{submitting ? "Submitting…" : "Submit enhancement"}</button>
             </div>
-          </form>
+            </form>
+          </>}
         </div> : <div id={historyPanelId} role="tabpanel" aria-labelledby={historyTabId} style={{ display: "flex", width: "100%", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
           {historyForm}
           {loadingHistory && history.length === 0 && <div role="status">Loading your enhancement requests…</div>}
