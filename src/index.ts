@@ -22,6 +22,10 @@ export {
 export type {
   EnhancementDismissResult,
   EnhancementDismissSucceededResult,
+  EnhancementDeliveryJourney,
+  EnhancementDeliveryJourneyState,
+  EnhancementDeliveryMilestone,
+  EnhancementDeliveryMilestoneState,
   EnhancementHistoryListOptions,
   EnhancementHistoryCapabilities,
   EnhancementHistoryQuery,

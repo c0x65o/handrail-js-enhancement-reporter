@@ -128,6 +128,7 @@ export interface EnhancementRequestRecord {
   readonly id: string;
   readonly title: string;
   readonly description?: string | null;
+  readonly priority?: "low" | "medium" | "high" | "urgent" | string;
   readonly status: string;
   readonly status_group: EnhancementHistoryStatusGroup;
   readonly terminal: boolean;
@@ -142,12 +143,40 @@ export interface EnhancementRequestRecord {
     readonly size_bytes: number;
     readonly download_path: string;
   }[];
+  readonly delivery_journey?: EnhancementDeliveryJourney | null;
   readonly release_tracking?: EnhancementReleaseTracking | null;
   readonly dismissed_at: string | null;
   readonly dismissed: boolean;
   readonly created_at?: string;
   readonly updated_at?: string;
   readonly [key: string]: unknown;
+}
+
+export type EnhancementDeliveryJourneyState = "active" | "waiting" | "succeeded" | "closed" | "blocked";
+export type EnhancementDeliveryMilestoneState = "pending" | "active" | "waiting" | "completed" | "blocked" | "skipped";
+
+export interface EnhancementDeliveryMilestone {
+  readonly key: "suggested" | "assessed" | "plan_ready" | "built" | "checked" | "shipped" | string;
+  readonly label: string;
+  readonly state: EnhancementDeliveryMilestoneState;
+  readonly started_at: string | null;
+  readonly completed_at: string | null;
+  readonly duration_ms: number | null;
+  readonly detail: string | null;
+}
+
+export interface EnhancementDeliveryJourney {
+  readonly contract_version: 1;
+  readonly state: EnhancementDeliveryJourneyState;
+  readonly label: string;
+  readonly summary: string;
+  readonly measured_at: string | null;
+  readonly total_elapsed_ms: number | null;
+  readonly assessed_change_risk: "low" | "moderate" | "high" | null;
+  readonly implementation_mode: "automatic" | "manual" | null;
+  readonly manual_handoffs: number | null;
+  readonly verified_environment: string | null;
+  readonly milestones: readonly EnhancementDeliveryMilestone[];
 }
 
 export interface EnhancementReleaseTarget {
@@ -194,6 +223,11 @@ export interface EnhancementHistorySummary {
   readonly in_progress: number;
   readonly succeeded: number;
   readonly closed: number;
+  readonly shipped?: number;
+  readonly assessing?: number;
+  readonly building?: number;
+  readonly awaiting_team?: number;
+  readonly awaiting_user?: number;
 }
 
 export interface EnhancementHistoryQuery {

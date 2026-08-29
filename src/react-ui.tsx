@@ -26,6 +26,7 @@ import {
   type EnhancementHistoryStatusGroup,
   type EnhancementHistorySummary,
   type EnhancementHistoryVisibility,
+  type EnhancementDeliveryMilestone,
   type EnhancementImageInput,
   type EnhancementReporterClient,
   type EnhancementRequestRecord,
@@ -141,6 +142,7 @@ const RESPONSIVE_DIALOG_CSS = `
   [data-handrail-enhancement-history-cell="secondary"] { display: none !important; }
   [data-handrail-enhancement-history-cell="status"] { grid-column: 1; }
   [data-handrail-enhancement-history-cell="action"] { grid-column: 2; grid-row: 1 / span 2; }
+  [data-handrail-enhancement-history-cell="journey"] { grid-column: 1 / -1; }
 }
 @media (max-width: 860px) {
   [data-handrail-enhancement-report-panel="true"],
@@ -474,7 +476,7 @@ const styles: Record<string, CSSProperties> = {
   },
   historyItem: {
     display: "grid",
-    gridTemplateColumns: "minmax(220px, 2.2fr) minmax(150px, .9fr) minmax(100px, .72fr) minmax(150px, 1.1fr) minmax(140px, .9fr) 126px",
+    gridTemplateColumns: "minmax(190px, 1.45fr) minmax(420px, 3.4fr) minmax(150px, 1fr) minmax(140px, .9fr) 112px",
     alignItems: "center",
     gap: 10,
     padding: "8px 12px",
@@ -490,7 +492,7 @@ const styles: Record<string, CSSProperties> = {
   },
   historyListHeader: {
     display: "grid",
-    gridTemplateColumns: "minmax(220px, 2.2fr) minmax(150px, .9fr) minmax(100px, .72fr) minmax(150px, 1.1fr) minmax(140px, .9fr) 126px",
+    gridTemplateColumns: "minmax(190px, 1.45fr) minmax(420px, 3.4fr) minmax(150px, 1fr) minmax(140px, .9fr) 112px",
     gap: 10,
     padding: "7px 12px",
     color: "var(--handrail-enhancement-muted-text)",
@@ -670,6 +672,76 @@ function requestMatchesHistoryQuery(
   ].some((value) => value?.toLocaleLowerCase().includes(search));
 }
 
+function journeyDuration(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value) || value < 0) return "";
+  const seconds = Math.round(value / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+}
+
+function milestoneColor(state: EnhancementDeliveryMilestone["state"]): string {
+  if (state === "completed") return "var(--handrail-enhancement-success-text)";
+  if (state === "active") return "var(--handrail-enhancement-accent)";
+  if (state === "waiting") return "var(--handrail-enhancement-warning-text)";
+  if (state === "blocked") return "var(--handrail-enhancement-danger-text)";
+  return "var(--handrail-enhancement-border)";
+}
+
+function journeyStatusStyle(state: NonNullable<EnhancementRequestRecord["delivery_journey"]>["state"]): CSSProperties {
+  if (state === "succeeded") return enhancementStatusStyle("succeeded");
+  if (state === "active") return enhancementStatusStyle("in_progress");
+  if (state === "waiting") {
+    return {
+      color: "var(--handrail-enhancement-warning-text)",
+      borderColor: "color-mix(in srgb, var(--handrail-enhancement-warning-text) 30%, transparent)",
+      background: "var(--handrail-enhancement-warning-surface)",
+    };
+  }
+  if (state === "blocked") return enhancementStatusStyle("needs_attention");
+  return enhancementStatusStyle("closed");
+}
+
+function JourneyTimeline({ request, expanded = false }: {
+  readonly request: EnhancementRequestRecord;
+  readonly expanded?: boolean;
+}): ReactElement {
+  const milestones = request.delivery_journey?.milestones || [];
+  if (!milestones.length) {
+    return <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>Delivery journey unavailable</span>;
+  }
+  return <div
+    role="list"
+    aria-label={`Delivery progress for ${request.title}`}
+    data-handrail-enhancement-delivery-journey="true"
+    style={{ display: "grid", gridTemplateColumns: `repeat(${milestones.length}, minmax(62px, 1fr))`, minWidth: 0 }}
+  >
+    {milestones.map((item, index) => {
+      const duration = journeyDuration(item.duration_ms);
+      const meta = item.state === "active"
+        ? item.detail || "In progress"
+        : item.state === "waiting"
+          ? item.detail || "Waiting"
+          : item.state === "blocked"
+            ? item.detail || "Needs attention"
+            : item.state === "skipped"
+              ? "Not needed"
+              : duration || (item.state === "completed" ? "Done" : "Waiting");
+      const previous = milestones[index - 1];
+      const connectorComplete = previous?.state === "completed"
+        && !["pending", "skipped", "blocked"].includes(item.state);
+      return <div key={item.key} role="listitem" style={{ position: "relative", minWidth: 0, padding: expanded ? "0 5px" : "0 3px", textAlign: "center" }}>
+        {index > 0 && <span aria-hidden="true" style={{ position: "absolute", zIndex: 0, top: expanded ? 8 : 6, right: "50%", width: "100%", height: 2, background: connectorComplete ? "var(--handrail-enhancement-success-text)" : "var(--handrail-enhancement-border)" }} />}
+        <span aria-hidden="true" style={{ position: "relative", zIndex: 1, display: "inline-flex", width: expanded ? 17 : 13, height: expanded ? 17 : 13, alignItems: "center", justifyContent: "center", border: `2px solid ${milestoneColor(item.state)}`, borderRadius: 999, color: item.state === "completed" ? "var(--handrail-enhancement-accent-text)" : milestoneColor(item.state), background: item.state === "completed" ? "var(--handrail-enhancement-success-text)" : "var(--handrail-enhancement-surface)", boxShadow: item.state === "active" ? "0 0 0 4px color-mix(in srgb, var(--handrail-enhancement-accent) 16%, transparent)" : "none", fontSize: 9, fontWeight: 900 }}>{item.state === "completed" ? "✓" : item.state === "blocked" ? "!" : ""}</span>
+        <strong style={{ display: "block", overflow: "hidden", marginTop: 4, color: item.state === "active" || item.state === "waiting" || item.state === "blocked" ? milestoneColor(item.state) : "var(--handrail-enhancement-text)", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: expanded ? 11 : 9.5 }}>{item.label}</strong>
+        <span title={meta} style={{ display: "block", overflow: "hidden", marginTop: 1, color: item.state === "active" || item.state === "waiting" || item.state === "blocked" ? milestoneColor(item.state) : "var(--handrail-enhancement-muted-text)", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: expanded ? 10 : 8.5 }}>{meta}</span>
+      </div>;
+    })}
+  </div>;
+}
+
 function HistoryRow({
   request,
   busy,
@@ -688,29 +760,52 @@ function HistoryRow({
   readonly onRestore: (requestId: string) => Promise<void>;
 }): ReactElement {
   const release = enhancementReleaseSummary(request);
+  const journey = request.delivery_journey;
   return <article role="row" data-handrail-enhancement-history-row="true" style={styles.historyItem}>
     <div role="cell" style={{ minWidth: 0 }}>
       <strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>{request.title}</strong>
+      <span style={{ display: "block", overflow: "hidden", marginTop: 3, color: "var(--handrail-enhancement-muted-text)", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 10 }}>{displayAppVersion(request.reported_app_version)}{request.priority ? ` · ${displayLabel(request.priority)} priority` : ""}</span>
     </div>
-    <span role="cell" data-handrail-enhancement-history-cell="secondary" style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>{requestDate(request.created_at)}</span>
-    <span role="cell" data-handrail-enhancement-history-cell="secondary" style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>{displayAppVersion(request.reported_app_version)}</span>
+    <div role="cell" data-handrail-enhancement-history-cell="journey" style={{ minWidth: 0 }}><JourneyTimeline request={request} /></div>
     <div role="cell" data-handrail-enhancement-history-cell="status">
-      <span style={{ display: "inline-block", overflow: "hidden", maxWidth: "100%", padding: "3px 8px", border: "1px solid", borderRadius: 999, textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 10, fontWeight: 800, ...enhancementStatusStyle(request.status_group) }}>{displayLabel(request.status)}</span>
+      <span style={{ display: "inline-block", overflow: "hidden", maxWidth: "100%", padding: "3px 8px", border: "1px solid", borderRadius: 999, textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 10, fontWeight: 800, ...(journey ? journeyStatusStyle(journey.state) : enhancementStatusStyle(request.status_group)) }}>{journey?.label || displayLabel(request.status)}</span>
+      {journey?.implementation_mode && <span style={{ display: "block", marginTop: 4, color: "var(--handrail-enhancement-muted-text)", fontSize: 9 }}>{journey.implementation_mode === "automatic" ? "Advanced automatically" : "Team authorized"}</span>}
     </div>
-    <span role="cell" data-handrail-enhancement-history-cell="secondary" style={{ fontSize: 11, ...releaseStyle(release.state) }}>{release.label}</span>
+    <span role="cell" data-handrail-enhancement-history-cell="secondary" style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{requestDate(request.created_at)}</span>
     <div role="cell" data-handrail-enhancement-history-cell="action" style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
       <button type="button" aria-expanded={expanded} aria-label={`View ${request.title}`} onClick={() => onToggle(request.id)} style={{ border: 0, padding: "6px 2px", color: "var(--handrail-enhancement-accent)", background: "transparent", cursor: "pointer", font: "inherit", fontSize: 12, fontWeight: 800 }}>View</button>
       {request.dismissed && canRestore
         ? <button type="button" aria-label={`Restore ${request.title}`} disabled={busy} onClick={() => void onRestore(request.id)} style={{ border: 0, padding: "6px 2px", color: "var(--handrail-enhancement-accent)", background: "transparent", cursor: busy ? "wait" : "pointer", font: "inherit", fontSize: 12, fontWeight: 800 }}>{busy ? "Restoring…" : "Restore"}</button>
         : !request.dismissed && <button type="button" aria-label={`Archive ${request.title}`} disabled={busy} onClick={() => void onArchive(request.id)} style={{ border: 0, padding: "6px 2px", color: "var(--handrail-enhancement-accent)", background: "transparent", cursor: busy ? "wait" : "pointer", font: "inherit", fontSize: 12, fontWeight: 800 }}>{busy ? "Archiving…" : "Archive"}</button>}
     </div>
-    {expanded && <div role="cell" data-handrail-enhancement-history-detail="true" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, padding: "10px 12px", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, color: "var(--handrail-enhancement-muted-text)", background: "var(--handrail-enhancement-surface-muted)", fontSize: 11 }}>
-      <span style={{ gridColumn: "1 / -1" }}><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Request details</strong>{request.description || "No additional description is available."}</span>
-      <span><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Reference ID</strong>{request.id}</span>
-      <span><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Submitted</strong>{requestDate(request.created_at)}</span>
-      <span><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>App version</strong>{displayAppVersion(request.reported_app_version)}</span>
-      {release.deployedAt && <span><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Deployed</strong>{requestDate(release.deployedAt)}</span>}
-      {Boolean(request.attachments?.length) && <span><strong style={{ color: "var(--handrail-enhancement-text)" }}>Attachments:</strong> {request.attachments!.map((attachment) => attachment.filename).join(", ")}</span>}
+    {expanded && <div role="cell" data-handrail-enhancement-history-detail="true" style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "minmax(0, 1.7fr) minmax(250px, .8fr)", gap: 12, padding: 12, border: "1px solid var(--handrail-enhancement-border)", borderRadius: 10, color: "var(--handrail-enhancement-muted-text)", background: "var(--handrail-enhancement-surface-muted)", fontSize: 11 }}>
+      <section style={{ display: "grid", minWidth: 0, gap: 12 }}>
+        <div>
+          <strong style={{ display: "block", marginBottom: 3, color: "var(--handrail-enhancement-text)", fontSize: 13 }}>{journey?.label || "Request details"}</strong>
+          <span>{journey?.summary || request.description || "No additional description is available."}</span>
+        </div>
+        {journey && <div style={{ padding: "12px 8px", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, background: "var(--handrail-enhancement-surface)" }}><JourneyTimeline request={request} expanded /></div>}
+        <div>
+          <strong style={{ display: "block", marginBottom: 6, color: "var(--handrail-enhancement-text)" }}>How your idea moved forward</strong>
+          <div style={{ display: "grid", gap: 5 }}>
+            {(journey?.milestones || []).filter((item) => item.state === "completed").map((item) => <span key={item.key} style={{ color: "var(--handrail-enhancement-text)" }}><span aria-hidden="true" style={{ marginRight: 7, color: "var(--handrail-enhancement-success-text)", fontWeight: 900 }}>✓</span>{item.label}{item.detail ? ` — ${item.detail}` : ""}</span>)}
+            {!journey && <span>{request.description || "No additional description is available."}</span>}
+          </div>
+        </div>
+        {request.description && journey && <div><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Original request</strong>{request.description}</div>}
+      </section>
+      <aside style={{ alignSelf: "start", overflow: "hidden", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, background: "var(--handrail-enhancement-surface)" }}>
+        <strong style={{ display: "block", padding: "9px 11px", borderBottom: "1px solid var(--handrail-enhancement-border)", color: "var(--handrail-enhancement-text)" }}>Delivery receipt</strong>
+        {journey?.total_elapsed_ms != null && <span style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "7px 11px", borderBottom: "1px solid var(--handrail-enhancement-border)" }}><span>Total time</span><strong style={{ color: "var(--handrail-enhancement-text)" }}>{journeyDuration(journey.total_elapsed_ms)}</strong></span>}
+        {journey?.assessed_change_risk && <span style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "7px 11px", borderBottom: "1px solid var(--handrail-enhancement-border)" }}><span>Assessed change</span><strong style={{ color: "var(--handrail-enhancement-text)" }}>{displayLabel(journey.assessed_change_risk)} risk</strong></span>}
+        {journey?.implementation_mode && <span style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "7px 11px", borderBottom: "1px solid var(--handrail-enhancement-border)" }}><span>Implementation</span><strong style={{ color: "var(--handrail-enhancement-text)" }}>{journey.implementation_mode === "automatic" ? "Automatic" : "Team authorized"}</strong></span>}
+        {journey?.manual_handoffs != null && <span style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "7px 11px", borderBottom: "1px solid var(--handrail-enhancement-border)" }}><span>Manual handoffs</span><strong style={{ color: "var(--handrail-enhancement-text)" }}>{journey.manual_handoffs}</strong></span>}
+        {journey?.verified_environment && <span style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "7px 11px", borderBottom: "1px solid var(--handrail-enhancement-border)" }}><span>Verified in</span><strong style={{ color: "var(--handrail-enhancement-success-text)" }}>{displayLabel(journey.verified_environment)}</strong></span>}
+        <span style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "7px 11px", borderBottom: "1px solid var(--handrail-enhancement-border)" }}><span>Release</span><strong style={{ color: "var(--handrail-enhancement-text)", ...releaseStyle(release.state) }}>{release.label}</strong></span>
+        <span style={{ display: "block", padding: "8px 11px" }}><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Submitted</strong>{requestDate(request.created_at)} · {displayAppVersion(request.reported_app_version)}</span>
+        <span style={{ display: "block", padding: "0 11px 8px" }}><strong style={{ display: "block", color: "var(--handrail-enhancement-text)" }}>Reference ID</strong>{request.id}</span>
+        {Boolean(request.attachments?.length) && <span style={{ display: "block", padding: "0 11px 8px" }}><strong style={{ color: "var(--handrail-enhancement-text)" }}>Attachments:</strong> {request.attachments!.map((attachment) => attachment.filename).join(", ")}</span>}
+      </aside>
     </div>}
   </article>;
 }
