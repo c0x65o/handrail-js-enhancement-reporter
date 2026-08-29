@@ -191,6 +191,7 @@ test("the React dialog preserves My requests compatibility with older enabled-us
     }));
   });
   assert.equal(renderer.root.findAll((node) => node.children?.includes("My requests")).length, 1);
+  assert.equal(renderer.root.findByProps({ "aria-label": "0 total" }).children.join(""), "0");
   assert.equal(renderer.root.findAllByProps({ role: "alert" }).length, 0);
   assert.equal(renderer.root.findAllByProps({ "aria-label": "Start work on this request" }).length, 0);
   assert.equal(renderer.root.findAllByProps({ "aria-label": "Deploy to staging" }).length, 0);

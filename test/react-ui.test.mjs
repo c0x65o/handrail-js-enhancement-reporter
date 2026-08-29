@@ -277,6 +277,8 @@ test("Default Known Users receive capability-driven history without automation a
   await act(async () => { renderer = create(createElement(EnhancementReporterDialog, { open: true, onClose() {}, client: sdk })); });
   const tabs = renderer.root.findAllByProps({ role: "tab" });
   assert.equal(tabs.length, 2);
+  assert.equal(listCalls.length, 1);
+  assert.equal(renderer.root.findByProps({ "aria-label": "1 total" }).children.join(""), "1");
   let prevented = false;
   await act(async () => tabs[0].props.onKeyDown({ key: "End", preventDefault: () => { prevented = true; } }));
   assert.equal(prevented, true);

@@ -752,6 +752,8 @@ export function EnhancementReporterDialog({
   const historySearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyLoadedRef = useRef(false);
   const historyStaleRef = useRef(true);
+  const historyLoadingRef = useRef(false);
+  const historyDiscoveryReadyRef = useRef(false);
   const historyGenerationRef = useRef(0);
   const dialogRef = useRef<HTMLElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -783,6 +785,7 @@ export function EnhancementReporterDialog({
   ) => {
     const generation = ++historyGenerationRef.current;
     historyStaleRef.current = true;
+    historyLoadingRef.current = true;
     setLoadingHistory(true);
     setError(null);
     try {
@@ -805,6 +808,7 @@ export function EnhancementReporterDialog({
         : "Could not load enhancement requests.");
     } finally {
       if (generation === historyGenerationRef.current) {
+        historyLoadingRef.current = false;
         setLoadingHistory(false);
       }
     }
@@ -828,6 +832,8 @@ export function EnhancementReporterDialog({
     historyGenerationRef.current += 1;
     historyLoadedRef.current = false;
     historyStaleRef.current = true;
+    historyLoadingRef.current = false;
+    historyDiscoveryReadyRef.current = false;
     setHistoryCapabilities(null);
     setHistory([]);
     setHistoryHasMore(false);
@@ -846,6 +852,7 @@ export function EnhancementReporterDialog({
       const ownedHistoryEnabled = capabilities?.enabled === true
         || (capabilities?.enabled === undefined
           && discovery?.enhancement_reporting?.user_enabled === true);
+      historyDiscoveryReadyRef.current = true;
       setHistoryAvailable(ownedHistoryEnabled);
       setHistoryCapabilities(ownedHistoryEnabled ? capabilities : null);
       if (capabilities?.sorts.length && !capabilities.sorts.includes("newest")) {
@@ -860,6 +867,7 @@ export function EnhancementReporterDialog({
       );
     }).catch(() => {
       if (!cancelled) {
+        historyDiscoveryReadyRef.current = false;
         setHistoryAvailable(false);
         setHistoryCapabilities(null);
         setNotificationAvailable(false);
@@ -871,6 +879,8 @@ export function EnhancementReporterDialog({
     return () => {
       cancelled = true;
       historyGenerationRef.current += 1;
+      historyLoadingRef.current = false;
+      historyDiscoveryReadyRef.current = false;
     };
   }, [client, open]);
 
@@ -904,10 +914,25 @@ export function EnhancementReporterDialog({
       open
       && tab === "history"
       && (!historyLoadedRef.current || historyStaleRef.current)
+      && !historyLoadingRef.current
     ) {
       void loadHistory(0);
     }
   }, [loadHistory, open, tab]);
+
+  useEffect(() => {
+    if (
+      open
+      && historyAvailable
+      && !discovering
+      && historyDiscoveryReadyRef.current
+      && !historyLoadedRef.current
+      && historyStaleRef.current
+      && !historyLoadingRef.current
+    ) {
+      void loadHistory(0);
+    }
+  }, [discovering, historyAvailable, loadHistory, open]);
 
   const addFiles = useCallback((
     files: readonly File[],
@@ -1256,7 +1281,7 @@ export function EnhancementReporterDialog({
       <div data-handrail-enhancement-content={tab} style={{ ...styles.content, ...(tab === "history" ? styles.historyContent : {}) }}>
         {historyAvailable && <div role="tablist" aria-label="Enhancement reporter views" data-handrail-enhancement-tabs="true" style={styles.tabs}>
           <button id={newTabId} type="button" role="tab" aria-controls={newPanelId} aria-selected={tab === "new"} tabIndex={tab === "new" ? 0 : -1} onClick={() => selectTab("new")} onKeyDown={(event) => onTabKeyDown(event, "new")} style={{ ...styles.tab, ...(tab === "new" ? styles.activeTab : {}) }}>New request</button>
-          <button id={historyTabId} type="button" role="tab" aria-controls={historyPanelId} aria-selected={tab === "history"} tabIndex={tab === "history" ? 0 : -1} onClick={() => selectTab("history")} onKeyDown={(event) => onTabKeyDown(event, "history")} style={{ ...styles.tab, ...(tab === "history" ? styles.activeTab : {}) }}>My requests{historyTotal > 0 && <span aria-label={`${historyTotal} total`} style={{ display: "inline-grid", placeItems: "center", minWidth: 22, height: 22, marginLeft: 8, padding: "0 6px", borderRadius: 999, color: tab === "history" ? "var(--handrail-enhancement-accent-text)" : "var(--handrail-enhancement-muted-text)", background: tab === "history" ? "color-mix(in srgb, var(--handrail-enhancement-accent-text) 18%, transparent)" : "var(--handrail-enhancement-surface-muted)", fontSize: 11 }}>{historyTotal}</span>}</button>
+          <button id={historyTabId} type="button" role="tab" aria-controls={historyPanelId} aria-selected={tab === "history"} tabIndex={tab === "history" ? 0 : -1} onClick={() => selectTab("history")} onKeyDown={(event) => onTabKeyDown(event, "history")} style={{ ...styles.tab, ...(tab === "history" ? styles.activeTab : {}) }}>My requests{historyLoadedRef.current && <span aria-label={`${historyTotal} total`} style={{ display: "inline-grid", placeItems: "center", minWidth: 22, height: 22, marginLeft: 8, padding: "0 6px", borderRadius: 999, color: tab === "history" ? "var(--handrail-enhancement-accent-text)" : "var(--handrail-enhancement-muted-text)", background: tab === "history" ? "color-mix(in srgb, var(--handrail-enhancement-accent-text) 18%, transparent)" : "var(--handrail-enhancement-surface-muted)", fontSize: 11 }}>{historyTotal}</span>}</button>
         </div>}
 
         {error && <div role="alert" aria-live="assertive" style={{ ...styles.status, background: "var(--handrail-enhancement-danger-surface)", color: "var(--handrail-enhancement-danger-text)" }}>{error}</div>}
