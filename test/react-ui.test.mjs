@@ -325,10 +325,30 @@ test("Default Known Users receive capability-driven history without automation a
   const listCalls = [];
   const restoreCalls = [];
   const dismissed = {
-    id: "enh-1", title: "Saved filters", status: "succeeded", status_group: "succeeded",
+    id: "enh-1", title: "Saved filters", status: "completed", status_group: "succeeded", priority: "medium",
     description: "Let me save and reuse a filter.", created_at: "2026-08-01T00:00:00Z",
     reported_app_version: "3.2.1",
     terminal: true, dismissed: true, dismissed_at: "2026-08-01T00:00:00Z",
+    delivery_journey: {
+      contract_version: 1,
+      state: "succeeded",
+      label: "Verified shipped",
+      summary: "Your enhancement was released and verified in staging.",
+      measured_at: "2026-08-01T00:14:00Z",
+      total_elapsed_ms: 840_000,
+      assessed_change_risk: "low",
+      implementation_mode: "automatic",
+      manual_handoffs: 0,
+      verified_environment: "staging",
+      milestones: [
+        { key: "suggested", label: "Suggested", state: "completed", started_at: "2026-08-01T00:00:00Z", completed_at: "2026-08-01T00:00:00Z", duration_ms: 0, detail: "Request received" },
+        { key: "assessed", label: "Assessed", state: "completed", started_at: "2026-08-01T00:00:10Z", completed_at: "2026-08-01T00:02:00Z", duration_ms: 110_000, detail: "low change risk" },
+        { key: "plan_ready", label: "Plan ready", state: "completed", started_at: "2026-08-01T00:02:00Z", completed_at: "2026-08-01T00:02:00Z", duration_ms: 0, detail: null },
+        { key: "built", label: "Built", state: "completed", started_at: "2026-08-01T00:03:00Z", completed_at: "2026-08-01T00:08:00Z", duration_ms: 300_000, detail: "Implemented" },
+        { key: "checked", label: "Checked", state: "completed", started_at: "2026-08-01T00:08:00Z", completed_at: "2026-08-01T00:09:00Z", duration_ms: 60_000, detail: "Checks passed" },
+        { key: "shipped", label: "Shipped", state: "completed", started_at: "2026-08-01T00:13:00Z", completed_at: "2026-08-01T00:14:00Z", duration_ms: 60_000, detail: "Verified in staging" },
+      ],
+    },
   };
   const sdk = client(async () => discovery({
     user_enabled: false,
@@ -364,13 +384,20 @@ test("Default Known Users receive capability-driven history without automation a
   assert.equal(renderer.root.findByProps({ role: "table" }).props["aria-label"], "Enhancement requests");
   const historyHeaders = renderer.root.findAllByProps({ role: "columnheader" }).map((node) => node.children.join(""));
   assert.ok(historyHeaders.includes("Submitted"));
-  assert.ok(historyHeaders.includes("App version"));
+  assert.ok(historyHeaders.includes("Delivery progress"));
+  assert.ok(historyHeaders.includes("Outcome"));
+  assert.equal(historyHeaders.includes("App version"), false);
   assert.equal(historyHeaders.includes("Work request"), false);
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 1);
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-delivery-journey": "true" }).length, 1);
+  assert.match(JSON.stringify(renderer.toJSON()), /Verified shipped/);
   assert.deepEqual(renderer.root.findByProps({ "aria-label": "Enhancement visibility" }).findAllByType("button").map((button) => button.children.join("")), ["Archived", "Active", "All"]);
   assert.equal(renderer.root.findAll((node) => node.type === "button" && node.children?.some((child) => typeof child === "string" && child.startsWith("Clear succeeded"))).length, 0);
   await act(async () => renderer.root.findByProps({ "aria-label": "View Saved filters" }).props.onClick());
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-detail": "true" }).length, 1);
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-delivery-journey": "true" }).length, 2);
+  assert.match(JSON.stringify(renderer.toJSON()), /Delivery receipt/);
+  assert.match(JSON.stringify(renderer.toJSON()), /Manual handoffs/);
   assert.deepEqual(listCalls[0], { limit: 10, offset: 0, search: undefined, statusGroup: undefined, sort: "newest", visibility: "active" });
 
   await act(async () => {

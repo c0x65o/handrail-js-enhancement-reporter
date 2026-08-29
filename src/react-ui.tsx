@@ -164,6 +164,8 @@ const RESPONSIVE_DIALOG_CSS = `
     height: auto !important;
   }
   [data-handrail-enhancement-context="true"] { order: -1; }
+  [data-handrail-enhancement-history-overview="true"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  [data-handrail-enhancement-history-detail="true"] { grid-template-columns: minmax(0, 1fr) !important; }
 }
 @media (max-width: 560px) {
   [data-handrail-enhancement-reporter="overlay"] { padding: 0 !important; }
@@ -716,7 +718,7 @@ function JourneyTimeline({ request, expanded = false }: {
     role="list"
     aria-label={`Delivery progress for ${request.title}`}
     data-handrail-enhancement-delivery-journey="true"
-    style={{ display: "grid", gridTemplateColumns: `repeat(${milestones.length}, minmax(62px, 1fr))`, minWidth: 0 }}
+    style={{ display: "grid", gridTemplateColumns: `repeat(${milestones.length}, minmax(0, 1fr))`, minWidth: 0 }}
   >
     {milestones.map((item, index) => {
       const duration = journeyDuration(item.duration_ms);
@@ -1297,19 +1299,27 @@ export function EnhancementReporterDialog({
     }, 300);
   };
 
+  const shippedCount = historySummary?.shipped ?? historySummary?.succeeded ?? history.filter((request) => request.status === "completed").length;
+  const movingCount = historySummary?.building != null || historySummary?.assessing != null
+    ? (historySummary.building || 0) + (historySummary.assessing || 0)
+    : historySummary?.in_progress ?? historyCountFor("in_progress");
+  const planReadyCount = historySummary?.awaiting_team ?? history.filter((request) => request.status === "proposal_ready" || request.status === "backlog").length;
+  const needsYouCount = historySummary?.awaiting_user ?? history.filter((request) => request.status === "needs_clarification").length;
+
   const historyForm = <form onSubmit={(event) => {
     event.preventDefault();
     void loadHistory(0);
   }}>
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 9, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>
-        <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 999, background: "var(--handrail-enhancement-danger-text)" }} />
-        <strong style={{ color: "var(--handrail-enhancement-text)" }}>{historySummary?.needs_attention ?? historyCountFor("needs_attention")}</strong> need attention
-        <span aria-hidden="true" style={{ width: 1, height: 16, margin: "0 4px", background: "var(--handrail-enhancement-border)" }} />
-        <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 999, background: "var(--handrail-enhancement-info-text)" }} />
-        <strong style={{ color: "var(--handrail-enhancement-text)" }}>{historySummary?.in_progress ?? historyCountFor("in_progress")}</strong> in progress
-      </div>
-      <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{loadingHistory ? "Updating…" : history.length ? "Updated just now" : ""}</span>
+    <div data-handrail-enhancement-history-overview="true" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px, 1fr))", overflow: "hidden", marginBottom: 10, border: "1px solid var(--handrail-enhancement-border)", borderRadius: 10, background: "var(--handrail-enhancement-surface)" }}>
+      {([
+        ["✓", shippedCount, "Ideas shipped", "var(--handrail-enhancement-success-text)"],
+        ["↗", movingCount, "Moving now", "var(--handrail-enhancement-accent)"],
+        ["◇", planReadyCount, "Plans ready", "var(--handrail-enhancement-warning-text)"],
+        ["!", needsYouCount, "Waiting on you", needsYouCount ? "var(--handrail-enhancement-danger-text)" : "var(--handrail-enhancement-success-text)"],
+      ] as const).map(([icon, count, label, color], index) => <div key={label} style={{ display: "grid", gridTemplateColumns: "28px 1fr", gap: 8, padding: "10px 12px", borderLeft: index ? "1px solid var(--handrail-enhancement-border)" : 0 }}>
+        <span aria-hidden="true" style={{ display: "flex", width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: 999, color, background: `color-mix(in srgb, ${color} 10%, transparent)`, fontWeight: 900 }}>{icon}</span>
+        <span><strong style={{ display: "block", color: "var(--handrail-enhancement-text)", fontSize: 16, lineHeight: 1 }}>{count}</strong><span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 10 }}>{label}</span></span>
+      </div>)}
     </div>
 
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
@@ -1519,7 +1529,7 @@ export function EnhancementReporterDialog({
           {!loadingHistory && history.length === 0 && !error && <div role="status" style={{ color: "var(--handrail-enhancement-muted-text)" }}>No enhancement requests match these filters.</div>}
           {history.length > 0 && <div role="table" aria-label="Enhancement requests" data-handrail-enhancement-history-list="true" style={{ ...styles.historyList, flex: "1 1 auto" }}>
             <div role="row" data-handrail-enhancement-history-header="true" style={styles.historyListHeader}>
-              <span role="columnheader">Request</span><span role="columnheader">Submitted</span><span role="columnheader">App version</span><span role="columnheader">Status</span><span role="columnheader">Release</span><span role="columnheader">Action</span>
+              <span role="columnheader">Request</span><span role="columnheader">Delivery progress</span><span role="columnheader">Outcome</span><span role="columnheader">Submitted</span><span role="columnheader">Action</span>
             </div>
             {history.map((request) => <HistoryRow
               key={request.id}

@@ -245,16 +245,20 @@ immediately and then refresh the current server-backed page. Accepted
 submissions are also inserted into an already loaded matching newest page, with
 the badge and summary updated immediately. **My requests** then revalidates its
 current query when it opens, and slower superseded filter responses are ignored.
-The
-tracker scrolls within the stable dialog and changes its dense desktop table to
-compact cards before the six-column layout can overflow; each row can expand to
-show the request description, reference ID, submitted date and time, submitted
-app version, deployment date and time, and attachment names. The desktop list
-keeps implementation-only Work Request IDs out of view and instead shows the
-submitted app version. Each row summarizes the strongest release evidence
-available and includes the deployed application version when Handrail has
-recorded one, without exposing the deployment environment. Missing release
-tracking or environment targets display
+The tracker scrolls within the stable dialog and changes its desktop journey
+table to compact cards before the layout can overflow. Every row presents the
+customer-safe **Suggested → Assessed → Plan ready → Built → Checked → Shipped**
+journey, with green completed milestones, blue active work, amber waits, red
+blocks, and neutral pending stages. Proposal Ready requests outside the current
+automatic implementation ceiling say **Awaiting team decision**; they are never
+presented as approved or promised. Each row can expand into a delivery receipt
+with the request description, canonical stage timing, assessed change risk,
+automatic or staff-authorized implementation, manual handoff count, verified
+environment, reference ID, submitted date and time, submitted app version, and
+attachment names. The desktop list keeps implementation-only Work Request IDs
+out of view. Each row also summarizes the strongest release evidence available
+and includes the deployed application version when Handrail has recorded one.
+Missing release tracking or environment targets display
 **Deployment status unavailable** rather than **Not deployed**. Archiving only
 changes that principal's history presentation; it never deletes, cancels, or
 changes the first-class enhancement or any later linked implementation Work Request. Set `historyPageSize` on
@@ -311,7 +315,7 @@ function SuggestionForm() {
 }
 ```
 
-`list({ limit, offset, search, statusGroup, sort, visibility })` returns bounded pagination metadata, exact counts for `needs_attention`, `in_progress`, `succeeded`, and `closed`, and the normalized query. `visibility` accepts `active`, `dismissed`, or `all`. `releaseStatus` reports the eventual full commit SHA/version and its deployment state after policy-authorized implementation produces and delivers the linked Work Request. `dismiss`, `restore`, and `dismissSucceeded` change only the current principal's history presentation while preserving the first-class enhancement and any later implementation link.
+`list({ limit, offset, search, statusGroup, sort, visibility })` returns bounded pagination metadata, exact counts for `needs_attention`, `in_progress`, `succeeded`, and `closed`, customer-facing journey counts, and the normalized query. Each request's `delivery_journey` is projected server-side from canonical assessment, policy authorization, Work Request step, Ship, and post-deployment verification evidence. Missing evidence remains pending or unavailable; `Shipped` requires a passing verification in the release demand's destination ceiling. `visibility` accepts `active`, `dismissed`, or `all`. `releaseStatus` reports the eventual full commit SHA/version and its deployment state after policy-authorized implementation produces and delivers the linked Work Request. `dismiss`, `restore`, and `dismissSucceeded` change only the current principal's history presentation while preserving the first-class enhancement and any later implementation link.
 
 ## Security contract
 
