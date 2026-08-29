@@ -1,6 +1,6 @@
 {
   "name": "@handrail/enhancement-reporter",
-  "version": "0.3.32",
+  "version": "0.3.33",
   "description": "Opt-in packaged and headless web enhancement reporting with a same-origin Handrail transport",
   "license": "UNLICENSED",
   "type": "module",

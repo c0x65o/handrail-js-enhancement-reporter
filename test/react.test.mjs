@@ -77,6 +77,10 @@ test("the React dialog captures pasted and dropped images once and preserves the
     "aria-label": "Email me when this enhancement is fixed",
   });
   assert.equal(notificationCheckbox.props.checked, false);
+  assert.equal(notificationCheckbox.props.style.width, 20);
+  assert.equal(notificationCheckbox.props.style.height, 20);
+  assert.equal(notificationCheckbox.props.style.flex, "0 0 20px");
+  assert.equal(notificationCheckbox.props.style.accentColor, "var(--handrail-enhancement-accent)");
   await act(async () => notificationCheckbox.props.onChange({ target: { checked: true } }));
   assert.equal(renderer.root.findAllByProps({ type: "email" }).length, 0);
 

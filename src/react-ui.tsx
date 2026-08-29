@@ -411,11 +411,22 @@ const styles: Record<string, CSSProperties> = {
   },
   checkboxLabel: {
     display: "flex",
-    gap: 9,
+    gap: 12,
     alignItems: "flex-start",
     marginTop: 10,
+    padding: "3px 2px 4px",
     color: "inherit",
     fontSize: 13,
+    lineHeight: 1.35,
+    cursor: "pointer",
+  },
+  checkboxInput: {
+    width: 20,
+    height: 20,
+    minWidth: 20,
+    margin: 0,
+    flex: "0 0 20px",
+    accentColor: "var(--handrail-enhancement-accent)",
     cursor: "pointer",
   },
   drop: {
@@ -1393,7 +1404,7 @@ export function EnhancementReporterDialog({
                 {canNotify && <fieldset style={{ ...styles.fieldset, margin: 0 }}>
                   <legend style={{ padding: "0 5px", fontSize: 12, fontWeight: 700 }}>Updates</legend>
                   <label style={{ ...styles.checkboxLabel, marginTop: 0 }}>
-                    <input aria-label="Email me when this enhancement is fixed" type="checkbox" checked={notifyOnResolution} onChange={(event) => setNotifyOnResolution(event.target.checked)} />
+                    <input aria-label="Email me when this enhancement is fixed" type="checkbox" checked={notifyOnResolution} onChange={(event) => setNotifyOnResolution(event.target.checked)} style={styles.checkboxInput} />
                     <span><strong>Email me when this is fixed</strong><span style={{ display: "block", marginTop: 2, color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>One email to {notificationRecipientHint || "your Known User email"} after the fix reaches this environment.</span></span>
                   </label>
                 </fieldset>}
