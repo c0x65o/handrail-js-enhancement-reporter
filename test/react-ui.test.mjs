@@ -555,3 +555,84 @@ test("a submitted enhancement immediately invalidates and refreshes previously l
   assert.equal(renderer.root.findAllByProps({ "aria-label": "View Newly submitted request" }).length, 1);
   await act(async () => renderer.unmount());
 });
+
+test("My requests refreshes every 15 seconds while the history tab stays open", async () => {
+  let listCalls = 0;
+  const sdk = client(async () => discovery({
+    history: {
+      enabled: true,
+      search: false,
+      status_groups: ["in_progress"],
+      sorts: ["newest"],
+      visibilities: ["active"],
+      restore: false,
+      dismiss_succeeded: false,
+    },
+  }));
+  sdk.list = async (options) => {
+    listCalls += 1;
+    return {
+      contract_version: "v1",
+      requests: [{
+        id: `poll-${listCalls}`,
+        title: `Polled request ${listCalls}`,
+        description: "Updated by the server.",
+        status: "running",
+        status_group: "in_progress",
+        terminal: false,
+        dismissed: false,
+        dismissed_at: null,
+        created_at: "2026-08-29T00:00:00Z",
+      }],
+      pagination: { limit: options.limit, offset: 0, total: 1, has_more: false },
+      summary: { total: 1, needs_attention: 0, in_progress: 1, succeeded: 0, closed: 0 },
+    };
+  };
+
+  let renderer;
+  await act(async () => {
+    renderer = create(createElement(EnhancementReporterDialog, {
+      open: true,
+      onClose() {},
+      client: sdk,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  let intervalCallback;
+  let intervalDelay;
+  let intervalCleared = false;
+  globalThis.setInterval = (callback, delay) => {
+    intervalCallback = callback;
+    intervalDelay = delay;
+    return 15_000;
+  };
+  globalThis.clearInterval = (interval) => {
+    if (interval === 15_000) intervalCleared = true;
+  };
+
+  try {
+    await act(async () => renderer.root.findAllByProps({ role: "tab" })[1].props.onClick());
+    assert.equal(intervalDelay, 15_000);
+    assert.equal(typeof intervalCallback, "function");
+    const callsBeforePoll = listCalls;
+
+    await act(async () => {
+      intervalCallback();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    assert.equal(listCalls, callsBeforePoll + 1);
+    assert.equal(renderer.root.findAllByProps({
+      "aria-label": `View Polled request ${listCalls}`,
+    }).length, 1);
+    await act(async () => renderer.root.findAllByProps({ role: "tab" })[0].props.onClick());
+    assert.equal(intervalCleared, true);
+  } finally {
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+    await act(async () => renderer.unmount());
+  }
+});

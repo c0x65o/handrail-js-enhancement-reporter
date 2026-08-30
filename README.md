@@ -251,7 +251,8 @@ no bulk clear action. Archive and restore update the visible status counts
 immediately and then refresh the current server-backed page. Accepted
 submissions are also inserted into an already loaded matching newest page, with
 the badge and summary updated immediately. **My requests** then revalidates its
-current query when it opens, and slower superseded filter responses are ignored.
+current query when it opens, refreshes it every 15 seconds while the tab remains
+open, and ignores slower superseded filter responses.
 The tracker scrolls within the stable dialog and changes its desktop journey
 table to compact cards before the layout can overflow. Every row presents the
 customer-safe **Suggested → Assessed → Plan ready → Built → Checked → Shipped**

@@ -259,6 +259,8 @@ const focusableSelector = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
+const HISTORY_REFRESH_INTERVAL_MS = 15_000;
+
 function appearanceVariables(
   appearance: EnhancementReporterAppearance | undefined,
   includeIntegrationStyle = true,
@@ -1063,6 +1065,14 @@ export function EnhancementReporterDialog({
       void loadHistory(0);
     }
   }, [discovering, historyAvailable, loadHistory, open]);
+
+  useEffect(() => {
+    if (!open || tab !== "history") return undefined;
+    const interval = setInterval(() => {
+      if (!historyLoadingRef.current) void loadHistory(0);
+    }, HISTORY_REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [loadHistory, open, tab]);
 
   const addFiles = useCallback((
     files: readonly File[],
