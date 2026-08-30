@@ -144,7 +144,9 @@ parent render; changing an actual configuration field still creates the new
 reporter instance.
 The compact, wide desktop dialog mirrors Handrail's packaged bug reporter. The
 request form and history share one bounded height so the shell stays stable as
-users switch tabs. On desktop the outcome field and image area expand to use
+users switch views. A header-level **My requests** button opens request history,
+and **New request** returns to the form. On desktop the outcome field and image
+area expand to use
 the remaining form height instead of leaving an empty lower region, while the
 priority selector sits beside an **Attached context** panel,
 with notifications grouped into the same side
@@ -241,7 +243,7 @@ compatibility.
 
 The dialog never asks the customer to authorize work or choose a deployment target. Submission authority is intake-only. After an assessment reaches Proposal Ready, Handrail automatically creates implementation work only when the assessed risk is within the current role's configured ceiling. Staff can separately authorize a proposal outside that ceiling; neither path grants the SDK deployment authority.
 
-Every verified Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin discovery route before rendering navigation, and every verified user receives the **My requests** tab automatically. The tab lists only requests owned by the current authenticated principal, and returned attachment URLs pass through the same principal-scoped route. Known User roles affect later Handrail authorization decisions; they never turn SDK submission into implementation authority.
+Every verified Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin discovery route before rendering navigation, and every verified user receives the **My requests** header action automatically. The history view lists only requests owned by the current authenticated principal, and returned attachment URLs pass through the same principal-scoped route. Known User roles affect later Handrail authorization decisions; they never turn SDK submission into implementation authority.
 
 **My requests** initially loads the 10 newest active requests and offers **Show
 more** for older bounded pages. When discovery advertises them, the packaged UI
@@ -251,7 +253,7 @@ no bulk clear action. Archive and restore update the visible status counts
 immediately and then refresh the current server-backed page. Accepted
 submissions are also inserted into an already loaded matching newest page, with
 the badge and summary updated immediately. **My requests** then revalidates its
-current query when it opens, refreshes it every 15 seconds while the tab remains
+current query when it opens, refreshes it every 15 seconds while the view remains
 open, and ignores slower superseded filter responses.
 The tracker scrolls within the stable dialog and changes its desktop journey
 table to compact cards before the layout can overflow. Every row presents the

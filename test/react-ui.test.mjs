@@ -371,14 +371,16 @@ test("Default Known Users receive capability-driven history without automation a
   sdk.dismiss = async () => { throw new Error("not used"); };
   let renderer;
   await act(async () => { renderer = create(createElement(EnhancementReporterDialog, { open: true, onClose() {}, client: sdk })); });
-  const tabs = renderer.root.findAllByProps({ role: "tab" });
-  assert.equal(tabs.length, 2);
+  const historySwitch = renderer.root.findByProps({ "data-handrail-enhancement-view-switch": "history" });
+  assert.equal(historySwitch.children[0], "My requests");
+  assert.equal(historySwitch.props.style.background, "var(--handrail-enhancement-surface)");
   assert.equal(listCalls.length, 1);
   assert.equal(renderer.root.findByProps({ "aria-label": "1 total" }).children.join(""), "1");
-  let prevented = false;
-  await act(async () => tabs[0].props.onKeyDown({ key: "End", preventDefault: () => { prevented = true; } }));
-  assert.equal(prevented, true);
-  assert.equal(renderer.root.findAllByProps({ role: "tabpanel" }).length, 1);
+  await act(async () => historySwitch.props.onClick());
+  const requestSwitch = renderer.root.findByProps({ "data-handrail-enhancement-view-switch": "new" });
+  assert.equal(requestSwitch.children.join(""), "New request");
+  assert.equal(requestSwitch.props.style.background, "var(--handrail-enhancement-accent)");
+  assert.equal(renderer.root.findByType("h2").children.join(""), "My requests");
   assert.equal(renderer.root.findByProps({ role: "dialog" }).props.style.height, "min(720px, calc(100dvh - 16px))");
   assert.equal(renderer.root.findByProps({ "data-handrail-enhancement-content": "history" }).props.style.overflow, "hidden");
   assert.equal(renderer.root.findByProps({ role: "table" }).props["aria-label"], "Enhancement requests");
@@ -390,6 +392,7 @@ test("Default Known Users receive capability-driven history without automation a
   assert.equal(historyHeaders.includes("Work request"), false);
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 1);
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-delivery-journey": "true" }).length, 1);
+  assert.equal(renderer.root.findByProps({ "data-handrail-enhancement-delivery-journey": "true" }).findAllByProps({ role: "listitem" }).length, 6);
   assert.match(JSON.stringify(renderer.toJSON()), /Verified shipped/);
   assert.deepEqual(renderer.root.findByProps({ "aria-label": "Enhancement visibility" }).findAllByType("button").map((button) => button.children.join("")), ["Archived", "Active", "All"]);
   assert.equal(renderer.root.findAll((node) => node.type === "button" && node.children?.some((child) => typeof child === "string" && child.startsWith("Clear succeeded"))).length, 0);
@@ -451,7 +454,7 @@ test("archiving refreshes enhancement filter counts and refills the current page
   let renderer;
   await act(async () => { renderer = create(createElement(EnhancementReporterDialog, { open: true, onClose() {}, client: sdk })); });
   await act(async () => {
-    renderer.root.findAllByProps({ role: "tab" })[1].props.onClick();
+    renderer.root.findByProps({ "data-handrail-enhancement-view-switch": "history" }).props.onClick();
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   let statusButtons = renderer.root.findByProps({ "aria-label": "Enhancement status" }).findAllByType("button");
@@ -528,13 +531,13 @@ test("a submitted enhancement immediately invalidates and refreshes previously l
     }));
   });
   await act(async () => {
-    renderer.root.findAllByProps({ role: "tab" })[1].props.onClick();
+    renderer.root.findByProps({ "data-handrail-enhancement-view-switch": "history" }).props.onClick();
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   assert.equal(listCalls.length, 1);
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 1);
 
-  await act(async () => renderer.root.findAllByProps({ role: "tab" })[0].props.onClick());
+  await act(async () => renderer.root.findByProps({ "data-handrail-enhancement-view-switch": "new" }).props.onClick());
   await act(async () => {
     renderer.root.findByProps({ placeholder: "What should be improved?" }).props.onChange({
       target: { value: "Newly submitted request" },
@@ -547,7 +550,7 @@ test("a submitted enhancement immediately invalidates and refreshes previously l
   assert.equal(renderer.root.findByProps({ "aria-label": "2 total" }).children.join(""), "2");
 
   await act(async () => {
-    renderer.root.findAllByProps({ role: "tab" })[1].props.onClick();
+    renderer.root.findByProps({ "data-handrail-enhancement-view-switch": "history" }).props.onClick();
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   assert.equal(listCalls.length, 2);
@@ -556,7 +559,7 @@ test("a submitted enhancement immediately invalidates and refreshes previously l
   await act(async () => renderer.unmount());
 });
 
-test("My requests refreshes every 15 seconds while the history tab stays open", async () => {
+test("My requests refreshes every 15 seconds while the history view stays open", async () => {
   let listCalls = 0;
   const sdk = client(async () => discovery({
     history: {
@@ -614,7 +617,7 @@ test("My requests refreshes every 15 seconds while the history tab stays open", 
   };
 
   try {
-    await act(async () => renderer.root.findAllByProps({ role: "tab" })[1].props.onClick());
+    await act(async () => renderer.root.findByProps({ "data-handrail-enhancement-view-switch": "history" }).props.onClick());
     assert.equal(intervalDelay, 15_000);
     assert.equal(typeof intervalCallback, "function");
     const callsBeforePoll = listCalls;
@@ -628,7 +631,7 @@ test("My requests refreshes every 15 seconds while the history tab stays open", 
     assert.equal(renderer.root.findAllByProps({
       "aria-label": `View Polled request ${listCalls}`,
     }).length, 1);
-    await act(async () => renderer.root.findAllByProps({ role: "tab" })[0].props.onClick());
+    await act(async () => renderer.root.findByProps({ "data-handrail-enhancement-view-switch": "new" }).props.onClick());
     assert.equal(intervalCleared, true);
   } finally {
     globalThis.setInterval = originalSetInterval;

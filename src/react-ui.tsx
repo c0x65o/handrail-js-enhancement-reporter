@@ -183,7 +183,6 @@ const RESPONSIVE_DIALOG_CSS = `
   [data-handrail-enhancement-content="new"] { padding: 12px 14px !important; }
   [data-handrail-enhancement-content="history"] { padding: 12px 14px 0 !important; }
   [data-handrail-enhancement-history-list="true"] { min-height: 150px !important; }
-  [data-handrail-enhancement-tabs="true"] { margin-bottom: 14px !important; }
 }
 `;
 
@@ -359,15 +358,6 @@ const styles: Record<string, CSSProperties> = {
     gap: 10,
     overflow: "hidden",
     padding: "10px 20px 0",
-  },
-  tabs: {
-    display: "flex",
-    gap: 8,
-    padding: 0,
-    marginBottom: 12,
-    border: 0,
-    borderRadius: 10,
-    background: "transparent",
   },
   tab: {
     flex: 1,
@@ -874,10 +864,7 @@ export function EnhancementReporterDialog({
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const headingId = useId();
   const descriptionId = useId();
-  const newTabId = useId();
-  const historyTabId = useId();
   const newPanelId = useId();
-  const historyPanelId = useId();
   const pageSize = Math.max(1, Math.min(50, Math.floor(historyPageSize) || 10));
   const resolvedAppVersion = appVersion || client.appVersion;
   const attachedContext = {
@@ -1263,27 +1250,7 @@ export function EnhancementReporterDialog({
     onClose();
   };
 
-  const selectTab = (next: DialogTab) => setTab(next);
-  const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, current: DialogTab) => {
-    const next = event.key === "ArrowRight" || event.key === "ArrowDown"
-      ? current === "new" ? "history" : "new"
-      : event.key === "ArrowLeft" || event.key === "ArrowUp"
-        ? current === "history" ? "new" : "history"
-        : event.key === "Home"
-          ? "new"
-          : event.key === "End"
-            ? "history"
-            : null;
-    if (!next) return;
-    event.preventDefault();
-    setTab(next);
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(() => {
-        const id = next === "new" ? newTabId : historyTabId;
-        document.getElementById(id)?.focus();
-      });
-    }
-  };
+  const selectView = (next: DialogTab) => setTab(next);
 
   const onDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Escape") {
@@ -1338,6 +1305,10 @@ export function EnhancementReporterDialog({
     : historySummary?.in_progress ?? historyCountFor("in_progress");
   const planReadyCount = historySummary?.awaiting_team ?? history.filter((request) => request.status === "proposal_ready" || request.status === "backlog").length;
   const needsYouCount = historySummary?.awaiting_user ?? history.filter((request) => request.status === "needs_clarification").length;
+  const dialogHeading = tab === "history" ? "My requests" : heading;
+  const dialogDescription = tab === "history"
+    ? "Follow each request from suggestion through delivery."
+    : "Describe the improvement and review the attached context before sending.";
 
   const historyForm = <form onSubmit={(event) => {
     event.preventDefault();
@@ -1419,22 +1390,29 @@ export function EnhancementReporterDialog({
     >
       <header data-handrail-enhancement-header="true" style={styles.header}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ marginBottom: 4, color: "var(--handrail-enhancement-accent)", fontSize: 10, fontWeight: 800, letterSpacing: "0.14em" }}>HELP US IMPROVE IT</div>
-          <h2 id={headingId} style={{ margin: 0, fontSize: 20, lineHeight: 1.2, letterSpacing: "-0.02em" }}>{heading}</h2>
+          {tab === "new" && <div style={{ marginBottom: 4, color: "var(--handrail-enhancement-accent)", fontSize: 10, fontWeight: 800, letterSpacing: "0.14em" }}>HELP US IMPROVE IT</div>}
+          <h2 id={headingId} style={{ margin: 0, fontSize: 20, lineHeight: 1.2, letterSpacing: "-0.02em" }}>{dialogHeading}</h2>
           <div id={descriptionId} style={{ marginTop: 4, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>
-            Describe the improvement and review the attached context before sending.
+            {dialogDescription}
           </div>
         </div>
-        <button type="button" aria-label="Close enhancement reporter" disabled={submitting} onClick={closeDialog} style={{ ...buttonStyle("secondary"), width: 38, minWidth: 38, height: 38, padding: 0, fontSize: 20, lineHeight: 1, opacity: submitting ? 0.65 : 1 }}>×</button>
+        <div style={{ display: "flex", flex: "0 0 auto", alignItems: "center", gap: 8 }}>
+          {historyAvailable && <button
+            type="button"
+            data-handrail-enhancement-view-switch={tab === "history" ? "new" : "history"}
+            aria-label={tab === "history" ? "Request an enhancement" : "View my enhancement requests"}
+            onClick={() => selectView(tab === "history" ? "new" : "history")}
+            style={tab === "history" ? buttonStyle("primary") : buttonStyle("secondary")}
+          >
+            {tab === "history" ? "New request" : "My requests"}
+            {tab === "new" && historyLoadedRef.current && <span aria-label={`${historyTotal} total`} style={{ display: "inline-grid", placeItems: "center", minWidth: 20, height: 20, marginLeft: 7, padding: "0 5px", borderRadius: 999, color: "var(--handrail-enhancement-muted-text)", background: "var(--handrail-enhancement-surface-muted)", fontSize: 10 }}>{historyTotal}</span>}
+          </button>}
+          <button type="button" aria-label="Close enhancement reporter" disabled={submitting} onClick={closeDialog} style={{ ...buttonStyle("secondary"), width: 38, minWidth: 38, height: 38, padding: 0, fontSize: 20, lineHeight: 1, opacity: submitting ? 0.65 : 1 }}>×</button>
+        </div>
       </header>
       <div data-handrail-enhancement-content={tab} style={{ ...styles.content, ...(tab === "history" ? styles.historyContent : {}) }}>
-        {historyAvailable && <div role="tablist" aria-label="Enhancement reporter views" data-handrail-enhancement-tabs="true" style={styles.tabs}>
-          <button id={newTabId} type="button" role="tab" aria-controls={newPanelId} aria-selected={tab === "new"} tabIndex={tab === "new" ? 0 : -1} onClick={() => selectTab("new")} onKeyDown={(event) => onTabKeyDown(event, "new")} style={{ ...styles.tab, ...(tab === "new" ? styles.activeTab : {}) }}>New request</button>
-          <button id={historyTabId} type="button" role="tab" aria-controls={historyPanelId} aria-selected={tab === "history"} tabIndex={tab === "history" ? 0 : -1} onClick={() => selectTab("history")} onKeyDown={(event) => onTabKeyDown(event, "history")} style={{ ...styles.tab, ...(tab === "history" ? styles.activeTab : {}) }}>My requests{historyLoadedRef.current && <span aria-label={`${historyTotal} total`} style={{ display: "inline-grid", placeItems: "center", minWidth: 22, height: 22, marginLeft: 8, padding: "0 6px", borderRadius: 999, color: tab === "history" ? "var(--handrail-enhancement-accent-text)" : "var(--handrail-enhancement-muted-text)", background: tab === "history" ? "color-mix(in srgb, var(--handrail-enhancement-accent-text) 18%, transparent)" : "var(--handrail-enhancement-surface-muted)", fontSize: 11 }}>{historyTotal}</span>}</button>
-        </div>}
-
         {error && <div role="alert" aria-live="assertive" style={{ ...styles.status, background: "var(--handrail-enhancement-danger-surface)", color: "var(--handrail-enhancement-danger-text)" }}>{error}</div>}
-        {tab === "new" ? <div id={newPanelId} role={historyAvailable ? "tabpanel" : undefined} aria-labelledby={historyAvailable ? newTabId : undefined} data-handrail-enhancement-report-panel="true" style={{ display: "flex", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
+        {tab === "new" ? <div id={newPanelId} data-handrail-enhancement-report-panel="true" style={{ display: "flex", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
           {submitted ? <section
             data-handrail-enhancement-submission-success="true"
             aria-labelledby={`${newPanelId}-success-heading`}
@@ -1566,7 +1544,7 @@ export function EnhancementReporterDialog({
             </div>
             </form>
           </>}
-        </div> : <div id={historyPanelId} role="tabpanel" aria-labelledby={historyTabId} style={{ display: "flex", width: "100%", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
+        </div> : <div style={{ display: "flex", width: "100%", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
           {historyForm}
           {loadingHistory && history.length === 0 && <div role="status">Loading your enhancement requests…</div>}
           {!loadingHistory && history.length === 0 && !error && <div role="status" style={{ color: "var(--handrail-enhancement-muted-text)" }}>No enhancement requests match these filters.</div>}
