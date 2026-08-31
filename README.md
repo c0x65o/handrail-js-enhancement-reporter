@@ -215,7 +215,7 @@ restores focus to the prior control. Loading, validation, failure, and success
 states are exposed as text and live-region announcements; status meaning does
 not depend on color alone.
 
-The dialog supports file upload, direct image paste from the clipboard, and drag and drop onto the screenshot area. Each thumbnail opens a larger preview when clicked. Accepted formats are PNG, JPEG, GIF, and WebP, with a maximum of 4 images, 5 MiB per image, and 15 MiB total. Both the browser and Handrail validate image signatures and limits.
+The dialog supports file upload, direct image paste from the clipboard, and drag and drop onto the screenshot area. Each thumbnail has a visible View affordance and opens a larger preview with filename, position, previous/next controls, and Left/Right Arrow navigation. Accessible Earlier/Later controls reorder selected images, and the submitted attachment order matches the visible order. Accepted formats are PNG, JPEG, GIF, and WebP, with a maximum of 4 images, 5 MiB per image, and 15 MiB total. Both the browser and Handrail validate image signatures and limits.
 
 ### Host CSP for image previews
 
@@ -243,7 +243,7 @@ compatibility.
 
 The dialog never asks the customer to authorize work or choose a deployment target. Submission authority is intake-only. After an assessment reaches Proposal Ready, Handrail automatically creates implementation work only when the assessed risk is within the current role's configured ceiling. Staff can separately authorize a proposal outside that ceiling; neither path grants the SDK deployment authority.
 
-Every verified Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin discovery route before rendering navigation, and every verified user receives the **My requests** header action automatically. The history view lists only requests owned by the current authenticated principal, and returned attachment URLs pass through the same principal-scoped route. Known User roles affect later Handrail authorization decisions; they never turn SDK submission into implementation authority.
+Every verified Known User may submit while the runtime enhancement switch is enabled. The dialog calls the same-origin discovery route before rendering navigation, and every verified user receives the **My requests** header action automatically. The history view lists only requests owned by the current authenticated principal. Submitted image thumbnails and their larger history previews are built with `client.attachmentUrl(requestId, attachmentId)`, so image bytes continue to pass through the same principal-scoped route; the UI does not trust or navigate directly to an attachment's returned `download_path`. Known User roles affect later Handrail authorization decisions; they never turn SDK submission into implementation authority.
 
 **My requests** initially loads the 10 newest active requests and offers **Show
 more** for older bounded pages. When discovery advertises them, the packaged UI

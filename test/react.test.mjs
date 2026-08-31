@@ -126,6 +126,7 @@ test("the React dialog captures pasted and dropped images once and preserves the
   const previewButton = renderer.root.findByProps({ "aria-label": "View clipboard.png larger" });
   assert.equal(previewButton.props["aria-haspopup"], "dialog");
   assert.equal(previewButton.props["aria-expanded"], false);
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-image-expand-affordance": "true" }).length, 1);
   await act(async () => previewButton.props.onClick({ currentTarget: { focus() {} } }));
   assert.equal(renderer.root.findByProps({ "aria-label": "View clipboard.png larger" }).props["aria-expanded"], true);
   const lightbox = renderer.root.findByProps({ "data-handrail-enhancement-image-lightbox": "true" });
@@ -158,6 +159,32 @@ test("the React dialog captures pasted and dropped images once and preserves the
   assert.equal(dropPrevented, 2);
   assert.equal(dragData.dropEffect, "copy");
   assert.equal(renderer.root.findAll((node) => node.props["aria-label"] === "Remove dropped.png").length, 1);
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-image-expand-affordance": "true" }).length, 2);
+
+  await act(async () => renderer.root.findByProps({ "aria-label": "View dropped.png larger" }).props.onClick({ currentTarget: { focus() {} } }));
+  let multiImageLightbox = renderer.root.findByProps({ "data-handrail-enhancement-image-lightbox": "true" });
+  assert.equal(multiImageLightbox.props["data-handrail-enhancement-image-lightbox-source"], "selection");
+  assert.match(renderedText(multiImageLightbox), /dropped\.png2 of 2/u);
+  assert.equal(renderer.root.findByProps({ "aria-label": "Next image" }).props.disabled, true);
+  let arrowPrevented = 0;
+  let arrowStopped = 0;
+  await act(async () => multiImageLightbox.props.onKeyDown({
+    key: "ArrowLeft",
+    preventDefault() { arrowPrevented += 1; },
+    stopPropagation() { arrowStopped += 1; },
+  }));
+  assert.equal(arrowPrevented, 1);
+  assert.equal(arrowStopped, 1);
+  multiImageLightbox = renderer.root.findByProps({ "data-handrail-enhancement-image-lightbox": "true" });
+  assert.match(renderedText(multiImageLightbox), /clipboard\.png1 of 2/u);
+  assert.equal(renderer.root.findByProps({ "aria-label": "Previous image" }).props.disabled, true);
+  await act(async () => renderer.root.findByProps({ "aria-label": "Next image" }).props.onClick());
+  assert.equal(renderer.root.findAllByProps({ alt: "dropped.png enlarged" }).length, 1);
+  await act(async () => renderer.root.findByProps({ "aria-label": "Close image preview" }).props.onClick());
+
+  await act(async () => renderer.root.findByProps({ "aria-label": "Move dropped.png earlier" }).props.onClick());
+  assert.match(renderedText(renderer.toJSON()), /dropped\.png moved to position 1 of 2/u);
+  assert.equal(renderer.root.findByProps({ "aria-label": "Move dropped.png earlier" }).props.disabled, true);
 
   const title = renderer.root.findByProps({ placeholder: "What should be improved?" });
   const description = renderer.root.findByProps({
@@ -175,10 +202,10 @@ test("the React dialog captures pasted and dropped images once and preserves the
   assert.equal(submissions.length, 1);
   assert.equal(submissions[0].priority, "medium");
   assert.equal(submissions[0].images.length, 2);
-  assert.equal(submissions[0].images[0].filename, "clipboard.png");
-  assert.equal(submissions[0].images[0].source, "clipboard");
-  assert.equal(submissions[0].images[1].filename, "dropped.png");
-  assert.equal(submissions[0].images[1].source, "upload");
+  assert.equal(submissions[0].images[0].filename, "dropped.png");
+  assert.equal(submissions[0].images[0].source, "upload");
+  assert.equal(submissions[0].images[1].filename, "clipboard.png");
+  assert.equal(submissions[0].images[1].source, "clipboard");
   assert.equal("automationRequests" in submissions[0], false);
   assert.deepEqual(submissions[0].notification, {
     notifyOnResolution: true,

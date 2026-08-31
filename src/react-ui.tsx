@@ -123,6 +123,12 @@ interface SelectedImage {
   readonly size: number;
 }
 
+interface PreviewableImage {
+  readonly id: string;
+  readonly name: string;
+  readonly url: string;
+}
+
 type UiVariables = EnhancementReporterStyle;
 type DialogTab = "new" | "history";
 
@@ -454,11 +460,13 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--handrail-enhancement-surface)",
   },
   imagePreviewButton: {
+    position: "relative",
     display: "block",
     width: "100%",
     margin: 0,
     padding: 0,
     border: 0,
+    overflow: "hidden",
     background: "transparent",
     cursor: "zoom-in",
     font: "inherit",
@@ -474,15 +482,29 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--handrail-enhancement-overlay)",
     backdropFilter: "blur(3px)",
   },
+  imageLightboxPanel: {
+    display: "grid",
+    width: "min(1200px, calc(100vw - 48px))",
+    maxHeight: "calc(100dvh - 88px)",
+    boxSizing: "border-box",
+    gap: 10,
+    margin: 0,
+    padding: 10,
+    border: "1px solid var(--handrail-enhancement-border)",
+    borderRadius: 12,
+    color: "var(--handrail-enhancement-text)",
+    background: "var(--handrail-enhancement-surface)",
+    boxShadow: "0 24px 80px rgba(0, 0, 0, 0.4)",
+  },
   imageLightboxImage: {
     display: "block",
-    maxWidth: "min(1200px, calc(100vw - 48px))",
-    maxHeight: "calc(100dvh - 96px)",
+    maxWidth: "100%",
+    maxHeight: "calc(100dvh - 164px)",
+    justifySelf: "center",
     border: "1px solid var(--handrail-enhancement-border)",
     borderRadius: 10,
     objectFit: "contain",
-    background: "var(--handrail-enhancement-surface)",
-    boxShadow: "0 24px 80px rgba(0, 0, 0, 0.4)",
+    background: "var(--handrail-enhancement-surface-muted)",
   },
   button: {
     border: "1px solid transparent",
@@ -563,6 +585,104 @@ function buttonStyle(kind: "primary" | "secondary"): CSSProperties {
       ? { background: "var(--handrail-enhancement-accent)", color: "var(--handrail-enhancement-accent-text)" }
       : { borderColor: "var(--handrail-enhancement-border)", background: "var(--handrail-enhancement-surface-muted)", color: "var(--handrail-enhancement-text)" }),
   };
+}
+
+function ImageLightbox({
+  images,
+  activeIndex,
+  source,
+  onActiveIndexChange,
+  onClose,
+}: {
+  readonly images: readonly PreviewableImage[];
+  readonly activeIndex: number;
+  readonly source: "selection" | "history";
+  readonly onActiveIndexChange: (index: number) => void;
+  readonly onClose: () => void;
+}): ReactElement | null {
+  const activeImage = images[activeIndex];
+  if (!activeImage) return null;
+  const hasPrevious = activeIndex > 0;
+  const hasNext = activeIndex < images.length - 1;
+  const move = (direction: -1 | 1) => {
+    const nextIndex = activeIndex + direction;
+    if (nextIndex < 0 || nextIndex >= images.length) return;
+    onActiveIndexChange(nextIndex);
+  };
+  return <section
+    data-handrail-enhancement-image-lightbox="true"
+    data-handrail-enhancement-image-lightbox-source={source}
+    role="dialog"
+    aria-modal="true"
+    aria-label={`Preview of ${activeImage.name}`}
+    tabIndex={-1}
+    onMouseDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}
+    onKeyDown={(event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+        return;
+      }
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        const direction = event.key === "ArrowLeft" ? -1 : 1;
+        const canMove = direction === -1 ? hasPrevious : hasNext;
+        if (canMove) {
+          event.preventDefault();
+          onActiveIndexChange(activeIndex + direction);
+        }
+        event.stopPropagation();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      event.stopPropagation();
+      const focusable = Array.from(
+        event.currentTarget.querySelectorAll<HTMLElement>(focusableSelector),
+      ).filter((element) => !element.hasAttribute("disabled"));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        event.currentTarget.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeElement = typeof document === "undefined" ? null : document.activeElement;
+      if (event.shiftKey && activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }}
+    style={styles.imageLightbox}
+  >
+    <button
+      type="button"
+      aria-label="Close image preview"
+      autoFocus
+      onClick={onClose}
+      style={{ ...buttonStyle("secondary"), position: "absolute", top: 16, right: 16, width: 40, height: 40, padding: 0, fontSize: 22, lineHeight: 1 }}
+    >×</button>
+    <figure style={styles.imageLightboxPanel}>
+      <img
+        src={activeImage.url}
+        alt={`${activeImage.name} enlarged`}
+        data-handrail-enhancement-lightbox-image="true"
+        style={styles.imageLightboxImage}
+      />
+      <div style={{ display: "grid", gridTemplateColumns: images.length > 1 ? "auto minmax(0, 1fr) auto" : "minmax(0, 1fr)", alignItems: "center", gap: 10 }}>
+        {images.length > 1 && <button type="button" aria-label="Previous image" disabled={!hasPrevious} onClick={() => move(-1)} style={{ ...buttonStyle("secondary"), opacity: hasPrevious ? 1 : 0.5 }}>← Previous</button>}
+        <figcaption aria-live="polite" style={{ minWidth: 0, textAlign: "center" }}>
+          <strong title={activeImage.name} style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeImage.name}</strong>
+          <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 11 }}>{activeIndex + 1} of {images.length}</span>
+        </figcaption>
+        {images.length > 1 && <button type="button" aria-label="Next image" disabled={!hasNext} onClick={() => move(1)} style={{ ...buttonStyle("secondary"), opacity: hasNext ? 1 : 0.5 }}>Next →</button>}
+      </div>
+    </figure>
+  </section>;
 }
 
 function displayLabel(value: string): string {
@@ -775,6 +895,8 @@ function HistoryRow({
   busy,
   expanded,
   onToggle,
+  attachmentUrl,
+  onPreviewAttachments,
   canRestore,
   onArchive,
   onRestore,
@@ -783,12 +905,29 @@ function HistoryRow({
   readonly busy: boolean;
   readonly expanded: boolean;
   readonly onToggle: (requestId: string) => void;
+  readonly attachmentUrl: (requestId: string, attachmentId: string) => string;
+  readonly onPreviewAttachments: (
+    images: readonly PreviewableImage[],
+    activeIndex: number,
+    trigger: HTMLButtonElement,
+  ) => void;
   readonly canRestore: boolean;
   readonly onArchive: (requestId: string) => Promise<void>;
   readonly onRestore: (requestId: string) => Promise<void>;
 }): ReactElement {
   const release = enhancementReleaseSummary(request);
   const journey = request.delivery_journey;
+  const attachmentImages: readonly PreviewableImage[] = (request.attachments || [])
+    .filter((attachment) => (
+      Boolean(attachment?.id)
+      && Boolean(attachment?.filename)
+      && /^image\/(?:png|jpeg|gif|webp)$/iu.test(attachment?.mime_type || "")
+    ))
+    .map((attachment) => ({
+      id: attachment.id,
+      name: attachment.filename,
+      url: attachmentUrl(request.id, attachment.id),
+    }));
   return <article role="row" data-handrail-enhancement-history-row="true" style={styles.historyItem}>
     <div role="cell" style={{ minWidth: 0 }}>
       <strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>{request.title}</strong>
@@ -813,6 +952,29 @@ function HistoryRow({
           <span>{journey?.summary || request.description || "No additional description is available."}</span>
         </div>
         {journey && <div style={{ padding: "12px 8px", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, background: "var(--handrail-enhancement-surface)" }}><JourneyTimeline request={request} expanded /></div>}
+        {attachmentImages.length > 0 && <section aria-label="Submitted attachments">
+          <strong style={{ display: "block", marginBottom: 6, color: "var(--handrail-enhancement-text)" }}>Submitted attachments</strong>
+          <div data-handrail-enhancement-history-attachments="true" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
+            {attachmentImages.map((attachment, index) => <button
+              key={attachment.id}
+              type="button"
+              aria-label={`View submitted attachment ${attachment.name}`}
+              aria-haspopup="dialog"
+              onClick={(event) => onPreviewAttachments(attachmentImages, index, event.currentTarget)}
+              style={{ ...styles.imagePreviewButton, border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, color: "var(--handrail-enhancement-text)", background: "var(--handrail-enhancement-surface)" }}
+            >
+              <span style={{ position: "relative", display: "block" }}>
+                <img src={attachment.url} alt="" loading="lazy" data-handrail-enhancement-history-attachment-preview="true" style={{ display: "block", width: "100%", height: 96, objectFit: "cover", background: "var(--handrail-enhancement-surface-muted)" }} />
+                <span
+                  data-handrail-enhancement-image-expand-affordance="true"
+                  aria-hidden="true"
+                  style={{ position: "absolute", right: 6, bottom: 6, display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 6px", borderRadius: 999, color: "var(--handrail-enhancement-accent-text)", background: "var(--handrail-enhancement-accent)", boxShadow: "0 1px 4px rgba(0, 0, 0, 0.28)", fontSize: 9, fontWeight: 800, lineHeight: 1 }}
+                ><span style={{ fontSize: 12 }}>↗</span> View</span>
+              </span>
+              <span title={attachment.name} style={{ display: "block", overflow: "hidden", padding: "7px 8px", textAlign: "left", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 10 }}>{attachment.name}</span>
+            </button>)}
+          </div>
+        </section>}
         <div>
           <strong style={{ display: "block", marginBottom: 6, color: "var(--handrail-enhancement-text)" }}>How your idea moved forward</strong>
           <div style={{ display: "grid", gap: 5 }}>
@@ -868,6 +1030,7 @@ export function EnhancementReporterDialog({
   const [notificationRecipientHint, setNotificationRecipientHint] = useState<string | null>(null);
   const [images, setImages] = useState<SelectedImage[]>([]);
   const [expandedImageId, setExpandedImageId] = useState<string | null>(null);
+  const [imageOrderAnnouncement, setImageOrderAnnouncement] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [history, setHistory] = useState<readonly EnhancementRequestRecord[]>([]);
   const [historyHasMore, setHistoryHasMore] = useState(false);
@@ -884,6 +1047,10 @@ export function EnhancementReporterDialog({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [busyHistoryId, setBusyHistoryId] = useState<string | null>(null);
   const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
+  const [historyImagePreview, setHistoryImagePreview] = useState<{
+    readonly images: readonly PreviewableImage[];
+    readonly activeIndex: number;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<EnhancementSubmissionResult | null>(null);
@@ -897,6 +1064,7 @@ export function EnhancementReporterDialog({
   const dialogRef = useRef<HTMLElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const imagePreviewTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const historyImagePreviewTriggerRef = useRef<HTMLButtonElement | null>(null);
   const headingId = useId();
   const descriptionId = useId();
   const newPanelId = useId();
@@ -987,6 +1155,8 @@ export function EnhancementReporterDialog({
     setAccessRole(null);
     setAccessPolicy(null);
     setExpandedImageId(null);
+    setHistoryImagePreview(null);
+    setImageOrderAnnouncement("");
     setDiscovering(true);
     void client.discover().then((discovery) => {
       if (cancelled) return;
@@ -1161,11 +1331,26 @@ export function EnhancementReporterDialog({
 
   const removeImage = (id: string) => {
     if (expandedImageId === id) setExpandedImageId(null);
+    const removed = images.find((image) => image.id === id);
     setImages((current) => current.filter((image) => {
       if (image.id !== id) return true;
       revokePreview(image, previewUrls.current);
       return false;
     }));
+    if (removed) setImageOrderAnnouncement(`Removed ${removed.name}.`);
+  };
+
+  const moveImage = (id: string, direction: -1 | 1) => {
+    const currentIndex = images.findIndex((image) => image.id === id);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= images.length) return;
+    const reordered = [...images];
+    const moved = reordered[currentIndex];
+    if (!moved) return;
+    reordered.splice(currentIndex, 1);
+    reordered.splice(nextIndex, 0, moved);
+    setImages(reordered);
+    setImageOrderAnnouncement(`${moved.name} moved to position ${nextIndex + 1} of ${reordered.length}.`);
   };
 
   const submit = async (event: FormEvent) => {
@@ -1273,9 +1458,27 @@ export function EnhancementReporterDialog({
   const canNotify = client.notificationsEnabled !== false && notificationAvailable;
   const variables = appearanceVariables(appearance);
   const expandedImage = images.find((image) => image.id === expandedImageId) || null;
+  const selectionPreviewImages: readonly PreviewableImage[] = images
+    .filter((image): image is SelectedImage & { readonly preview: string } => Boolean(image.preview))
+    .map((image) => ({ id: image.id, name: image.name, url: image.preview }));
+  const selectionPreviewIndex = expandedImage
+    ? selectionPreviewImages.findIndex((image) => image.id === expandedImage.id)
+    : -1;
   const closeImagePreview = () => {
     setExpandedImageId(null);
     imagePreviewTriggerRef.current?.focus();
+  };
+  const openHistoryImagePreview = (
+    previewImages: readonly PreviewableImage[],
+    activeIndex: number,
+    trigger: HTMLButtonElement,
+  ) => {
+    historyImagePreviewTriggerRef.current = trigger;
+    setHistoryImagePreview({ images: previewImages, activeIndex });
+  };
+  const closeHistoryImagePreview = () => {
+    setHistoryImagePreview(null);
+    historyImagePreviewTriggerRef.current?.focus();
   };
   const startAnotherRequest = () => {
     setSubmitted(null);
@@ -1286,6 +1489,7 @@ export function EnhancementReporterDialog({
     for (const image of images) revokePreview(image, previewUrls.current);
     setImages([]);
     setExpandedImageId(null);
+    setImageOrderAnnouncement("");
     setDragActive(false);
     setNotifyOnResolution(false);
   };
@@ -1295,7 +1499,10 @@ export function EnhancementReporterDialog({
     onClose();
   };
 
-  const selectView = (next: DialogTab) => setTab(next);
+  const selectView = (next: DialogTab) => {
+    setHistoryImagePreview(null);
+    setTab(next);
+  };
 
   const onDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Escape") {
@@ -1504,7 +1711,7 @@ export function EnhancementReporterDialog({
             {discovering && <div role="status" style={{ marginBottom: 12, color: "var(--handrail-enhancement-muted-text)", fontSize: 12 }}>Checking available options…</div>}
             <form data-handrail-enhancement-report-form="true" onSubmit={(event) => void submit(event)} style={{ display: "flex", width: "100%", minHeight: 0, flex: "1 1 auto", flexDirection: "column" }}>
             <span role="status" aria-live="polite" style={styles.visuallyHidden}>
-              {submitting ? "Submitting your enhancement request…" : ""}
+              {submitting ? "Submitting your enhancement request…" : imageOrderAnnouncement}
             </span>
             <div data-handrail-enhancement-report-layout="true" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.8fr) minmax(280px, .72fr)", gap: 16, minHeight: 0, flex: "1 1 auto", alignItems: "stretch" }}>
               <section data-handrail-enhancement-report-details="true" aria-label="Enhancement details" style={{ display: "grid", gridTemplateRows: "auto minmax(150px, 1.3fr) minmax(132px, 1fr)", minHeight: 0 }}>
@@ -1542,7 +1749,7 @@ export function EnhancementReporterDialog({
                     Choose images
                     <input aria-label="Choose enhancement images" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange={onFiles} style={{ display: "none" }} />
                   </label>
-                  {images.length > 0 && <div style={styles.imageGrid}>{images.map((image) => <div key={image.id} style={styles.imageCard}>
+                  {images.length > 0 && <div style={styles.imageGrid}>{images.map((image, index) => <div key={image.id} style={styles.imageCard}>
                     {image.preview && <button
                       type="button"
                       aria-label={`View ${image.name} larger`}
@@ -1555,46 +1762,32 @@ export function EnhancementReporterDialog({
                       style={styles.imagePreviewButton}
                     >
                       <img src={image.preview} alt="" data-handrail-enhancement-image-preview="true" style={{ width: "100%", height: 110, objectFit: "cover", display: "block" }} />
+                      <span
+                        data-handrail-enhancement-image-expand-affordance="true"
+                        aria-hidden="true"
+                        style={{ position: "absolute", right: 6, bottom: 6, display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 6px", borderRadius: 999, color: "var(--handrail-enhancement-accent-text)", background: "var(--handrail-enhancement-accent)", boxShadow: "0 1px 4px rgba(0, 0, 0, 0.28)", fontSize: 9, fontWeight: 800, lineHeight: 1 }}
+                      ><span style={{ fontSize: 12 }}>↗</span> View</span>
                     </button>}
                     <div title={image.name} style={{ padding: "7px 26px 7px 8px", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", fontSize: 11 }}>{image.name}</div>
                     <button type="button" aria-label={`Remove ${image.name}`} onClick={() => removeImage(image.id)} style={{ position: "absolute", top: 4, right: 4, width: 23, height: 23, padding: 0, border: 0, borderRadius: 12, cursor: "pointer", background: "rgba(15,23,42,.78)", color: "#fff" }}>×</button>
+                    <div role="group" aria-label={`Reorder ${image.name}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, padding: "0 6px 6px" }}>
+                      <span style={{ color: "var(--handrail-enhancement-muted-text)", fontSize: 9 }}>{index + 1} of {images.length}</span>
+                      <span style={{ display: "flex", gap: 4 }}>
+                        <button type="button" aria-label={`Move ${image.name} earlier`} disabled={index === 0} onClick={() => moveImage(image.id, -1)} style={{ ...buttonStyle("secondary"), minHeight: 26, width: 28, padding: 0, opacity: index === 0 ? 0.45 : 1 }}>←</button>
+                        <button type="button" aria-label={`Move ${image.name} later`} disabled={index === images.length - 1} onClick={() => moveImage(image.id, 1)} style={{ ...buttonStyle("secondary"), minHeight: 26, width: 28, padding: 0, opacity: index === images.length - 1 ? 0.45 : 1 }}>→</button>
+                      </span>
+                    </div>
                   </div>)}</div>}
                 </div>
               </section>
 
-              {expandedImage?.preview && <section
-                data-handrail-enhancement-image-lightbox="true"
-                role="dialog"
-                aria-modal="true"
-                aria-label={`Preview of ${expandedImage.name}`}
-                tabIndex={-1}
-                onMouseDown={(event) => {
-                  if (event.target === event.currentTarget) closeImagePreview();
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    closeImagePreview();
-                    return;
-                  }
-                  if (event.key === "Tab") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    event.currentTarget.querySelector<HTMLElement>(focusableSelector)?.focus();
-                  }
-                }}
-                style={styles.imageLightbox}
-              >
-                <button
-                  type="button"
-                  aria-label="Close image preview"
-                  autoFocus
-                  onClick={closeImagePreview}
-                  style={{ ...buttonStyle("secondary"), position: "absolute", top: 16, right: 16, width: 40, height: 40, padding: 0, fontSize: 22, lineHeight: 1 }}
-                >×</button>
-                <img src={expandedImage.preview} alt={`${expandedImage.name} enlarged`} style={styles.imageLightboxImage} />
-              </section>}
+              {expandedImage?.preview && selectionPreviewIndex >= 0 && <ImageLightbox
+                images={selectionPreviewImages}
+                activeIndex={selectionPreviewIndex}
+                source="selection"
+                onActiveIndexChange={(index) => setExpandedImageId(selectionPreviewImages[index]?.id || null)}
+                onClose={closeImagePreview}
+              />}
 
               <aside data-handrail-enhancement-context="true" aria-label="Attached context and options" style={{ display: "grid", alignSelf: "start", gap: 10 }}>
                 <section style={{ overflow: "hidden", border: "1px solid var(--handrail-enhancement-border)", borderRadius: 9, background: "var(--handrail-enhancement-surface)" }}>
@@ -1649,6 +1842,8 @@ export function EnhancementReporterDialog({
               busy={busyHistoryId === request.id}
               expanded={expandedRequestId === request.id}
               onToggle={(requestId) => setExpandedRequestId((current) => current === requestId ? null : requestId)}
+              attachmentUrl={client.attachmentUrl}
+              onPreviewAttachments={openHistoryImagePreview}
               canRestore={historyCapabilities?.restore === true}
               onArchive={archiveRequest}
               onRestore={restoreRequest}
@@ -1664,6 +1859,13 @@ export function EnhancementReporterDialog({
           </div>
         </div>}
       </div>
+      {historyImagePreview && <ImageLightbox
+        images={historyImagePreview.images}
+        activeIndex={historyImagePreview.activeIndex}
+        source="history"
+        onActiveIndexChange={(activeIndex) => setHistoryImagePreview((current) => current ? { ...current, activeIndex } : null)}
+        onClose={closeHistoryImagePreview}
+      />}
     </section>
   </div>;
 }

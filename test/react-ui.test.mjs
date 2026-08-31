@@ -562,6 +562,92 @@ test("a submitted enhancement immediately invalidates and refreshes previously l
   await act(async () => renderer.unmount());
 });
 
+test("My requests previews attachments only through the principal-scoped client route", async () => {
+  const attachmentUrlCalls = [];
+  const sdk = client(async () => discovery({
+    history: {
+      enabled: true,
+      search: false,
+      status_groups: ["in_progress"],
+      sorts: ["newest"],
+      visibilities: ["active"],
+      restore: false,
+      dismiss_succeeded: false,
+    },
+  }));
+  sdk.attachmentUrl = (requestId, attachmentId) => {
+    attachmentUrlCalls.push([requestId, attachmentId]);
+    return `/api/handrail-enhancements/requests/${requestId}/attachments/${attachmentId}`;
+  };
+  sdk.list = async (options) => ({
+    contract_version: "v1",
+    requests: [{
+      id: "enh-with-images",
+      title: "Attachment request",
+      description: "See the submitted examples.",
+      status: "running",
+      status_group: "in_progress",
+      terminal: false,
+      dismissed: false,
+      dismissed_at: null,
+      created_at: "2026-08-29T00:00:00Z",
+      attachments: [{
+        id: "attachment-1",
+        filename: "before.png",
+        mime_type: "image/png",
+        size_bytes: 120,
+        download_path: "https://untrusted.example/before.png",
+      }, {
+        id: "attachment-2",
+        filename: "after.webp",
+        mime_type: "image/webp",
+        size_bytes: 220,
+        download_path: "https://untrusted.example/after.webp",
+      }],
+    }],
+    pagination: { limit: options.limit, offset: 0, total: 1, has_more: false },
+    summary: { total: 1, needs_attention: 0, in_progress: 1, succeeded: 0, closed: 0 },
+  });
+
+  let renderer;
+  await act(async () => {
+    renderer = create(createElement(EnhancementReporterDialog, {
+      open: true,
+      onClose() {},
+      client: sdk,
+    }));
+  });
+  await act(async () => {
+    renderer.root.findByProps({ "data-handrail-enhancement-view-switch": "history" }).props.onClick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => renderer.root.findByProps({ "aria-label": "View Attachment request" }).props.onClick());
+
+  assert.deepEqual(attachmentUrlCalls, [
+    ["enh-with-images", "attachment-1"],
+    ["enh-with-images", "attachment-2"],
+  ]);
+  const attachmentPreviews = renderer.root.findAllByProps({
+    "data-handrail-enhancement-history-attachment-preview": "true",
+  });
+  assert.equal(attachmentPreviews.length, 2);
+  assert.equal(attachmentPreviews[0].props.src, "/api/handrail-enhancements/requests/enh-with-images/attachments/attachment-1");
+  assert.doesNotMatch(attachmentPreviews[0].props.src, /untrusted/u);
+
+  await act(async () => renderer.root.findByProps({
+    "aria-label": "View submitted attachment before.png",
+  }).props.onClick({ currentTarget: { focus() {} } }));
+  let lightbox = renderer.root.findByProps({ "data-handrail-enhancement-image-lightbox": "true" });
+  assert.equal(lightbox.props["data-handrail-enhancement-image-lightbox-source"], "history");
+  assert.match(renderedText(lightbox), /before\.png1 of 2/u);
+  await act(async () => renderer.root.findByProps({ "aria-label": "Next image" }).props.onClick());
+  lightbox = renderer.root.findByProps({ "data-handrail-enhancement-image-lightbox": "true" });
+  assert.match(renderedText(lightbox), /after\.webp2 of 2/u);
+  await act(async () => renderer.root.findByProps({ "aria-label": "Close image preview" }).props.onClick());
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-image-lightbox": "true" }).length, 0);
+  await act(async () => renderer.unmount());
+});
+
 test("My requests refreshes every 15 seconds while the history view stays open", async () => {
   let listCalls = 0;
   const sdk = client(async () => discovery({
