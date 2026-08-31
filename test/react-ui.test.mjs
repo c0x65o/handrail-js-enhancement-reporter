@@ -11,6 +11,12 @@ const {
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+function renderedText(node) {
+  if (Array.isArray(node)) return node.map(renderedText).join("");
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  return node && typeof node === "object" ? renderedText(node.children || []) : "";
+}
+
 function discovery(extra = {}) {
   return {
     enhancement_reporting: {
