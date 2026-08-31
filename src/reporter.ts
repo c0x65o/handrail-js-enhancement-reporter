@@ -192,6 +192,9 @@ export interface EnhancementDeliveryJourney {
   readonly assessed_change_risk: "low" | "moderate" | "high" | null;
   readonly implementation_mode: "automatic" | "manual" | null;
   readonly manual_handoffs: number | null;
+  readonly shipped_environment?: string | null;
+  readonly verification_status?: string | null;
+  readonly verification_environment?: string | null;
   readonly verified_environment: string | null;
   readonly milestones: readonly EnhancementDeliveryMilestone[];
 }
