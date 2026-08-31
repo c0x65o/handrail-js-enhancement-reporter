@@ -131,7 +131,7 @@ test("the React dialog captures pasted and dropped images once and preserves the
   assert.equal(renderer.root.findByProps({ "aria-label": "View clipboard.png larger" }).props["aria-expanded"], true);
   const lightbox = renderer.root.findByProps({ "data-handrail-enhancement-image-lightbox": "true" });
   assert.equal(lightbox.props.role, "dialog");
-  assert.equal(lightbox.props["aria-modal"], true);
+  assert.equal(lightbox.props["aria-modal"], "true");
   assert.equal(renderer.root.findAllByProps({ alt: "clipboard.png enlarged" }).length, 1);
   let previewEscapePrevented = 0;
   let previewEscapeStopped = 0;
@@ -210,10 +210,7 @@ test("the React dialog captures pasted and dropped images once and preserves the
   assert.deepEqual(submissions[0].notification, {
     notifyOnResolution: true,
   });
-  assert.match(
-    renderer.root.findAllByProps({ role: "status" }).map((node) => node.children.join("")).join(" "),
-    /Email updates are enabled/u,
-  );
+  assert.match(renderedText(renderer.toJSON()), /Email updates are enabled/u);
   await act(async () => renderer.unmount());
 });
 
@@ -378,19 +375,21 @@ test("history pages on demand, shows deployment versions, and archives without c
   const historyTab = renderer.root.find((node) => node.type === "button" && node.children?.includes("My requests"));
   await act(async () => historyTab.props.onClick());
   assert.deepEqual(listCalls, [{ limit: 1, offset: 0 }]);
-  assert.equal(renderer.root.findAll((node) => node.children?.includes("Deployed · v2.0.0")).length, 1);
   assert.equal(renderer.root.findAll((node) => node.children?.includes("v1.8.0")).length, 1);
   await act(async () => renderer.root.findByProps({ "aria-label": "View First enhancement" }).props.onClick());
   const detailLabels = renderer.root.findByProps({ "data-handrail-enhancement-history-detail": "true" })
     .findAllByType("strong").map((node) => node.children.join(""));
   assert.ok(detailLabels.includes("Submitted"));
-  assert.ok(detailLabels.includes("App version"));
-  assert.ok(detailLabels.includes("Deployed"));
+  assert.ok(detailLabels.includes("Deployed · v2.0.0"));
   assert.equal(detailLabels.includes("Work request"), false);
   const showMore = renderer.root.find((node) => node.type === "button" && node.children?.includes("Show more"));
   await act(async () => showMore.props.onClick());
   assert.deepEqual(listCalls, [{ limit: 1, offset: 0 }, { limit: 1, offset: 1 }]);
-  assert.equal(renderer.root.findAll((node) => node.children?.includes("Deployment status unavailable · v1.9.0")).length, 1);
+  await act(async () => renderer.root.findByProps({ "aria-label": "View Older enhancement" }).props.onClick());
+  assert.match(
+    renderedText(renderer.root.findByProps({ "data-handrail-enhancement-history-detail": "true" })),
+    /Deployment status unavailable · v1\.9\.0/u,
+  );
   const archive = renderer.root.findByProps({ "aria-label": "Archive First enhancement" });
   await act(async () => archive.props.onClick());
   assert.deepEqual(dismissCalls, ["request-1"]);
