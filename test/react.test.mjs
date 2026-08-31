@@ -123,6 +123,25 @@ test("the React dialog captures pasted and dropped images once and preserves the
   assert.equal(prevented, 1);
   assert.equal(renderer.root.findAll((node) => node.props["aria-label"] === "Remove clipboard.png").length, 1);
   assert.equal(renderer.root.findByProps({ "data-handrail-enhancement-image-preview": "true" }).props.style.height, 110);
+  const previewButton = renderer.root.findByProps({ "aria-label": "View clipboard.png larger" });
+  assert.equal(previewButton.props["aria-haspopup"], "dialog");
+  assert.equal(previewButton.props["aria-expanded"], false);
+  await act(async () => previewButton.props.onClick({ currentTarget: { focus() {} } }));
+  assert.equal(renderer.root.findByProps({ "aria-label": "View clipboard.png larger" }).props["aria-expanded"], true);
+  const lightbox = renderer.root.findByProps({ "data-handrail-enhancement-image-lightbox": "true" });
+  assert.equal(lightbox.props.role, "dialog");
+  assert.equal(lightbox.props["aria-modal"], true);
+  assert.equal(renderer.root.findAllByProps({ alt: "clipboard.png enlarged" }).length, 1);
+  let previewEscapePrevented = 0;
+  let previewEscapeStopped = 0;
+  await act(async () => lightbox.props.onKeyDown({
+    key: "Escape",
+    preventDefault() { previewEscapePrevented += 1; },
+    stopPropagation() { previewEscapeStopped += 1; },
+  }));
+  assert.equal(previewEscapePrevented, 1);
+  assert.equal(previewEscapeStopped, 1);
+  assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-image-lightbox": "true" }).length, 0);
 
   const dropzone = renderer.root.findByProps({ "data-handrail-enhancement-image-dropzone": "true" });
   const dropped = pastedPng("dropped.png");

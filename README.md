@@ -215,7 +215,7 @@ restores focus to the prior control. Loading, validation, failure, and success
 states are exposed as text and live-region announcements; status meaning does
 not depend on color alone.
 
-The dialog supports file upload, direct image paste from the clipboard, and drag and drop onto the screenshot area. Accepted formats are PNG, JPEG, GIF, and WebP, with a maximum of 4 images, 5 MiB per image, and 15 MiB total. Both the browser and Handrail validate image signatures and limits.
+The dialog supports file upload, direct image paste from the clipboard, and drag and drop onto the screenshot area. Each thumbnail opens a larger preview when clicked. Accepted formats are PNG, JPEG, GIF, and WebP, with a maximum of 4 images, 5 MiB per image, and 15 MiB total. Both the browser and Handrail validate image signatures and limits.
 
 ### Host CSP for image previews
 
