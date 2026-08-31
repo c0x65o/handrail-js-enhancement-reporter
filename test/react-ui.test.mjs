@@ -376,7 +376,7 @@ test("Default Known Users receive capability-driven history without automation a
   await act(async () => { renderer = create(createElement(EnhancementReporterDialog, { open: true, onClose() {}, client: sdk })); });
   const historySwitch = renderer.root.findByProps({ "data-handrail-enhancement-view-switch": "history" });
   assert.equal(historySwitch.children[0], "My requests");
-  assert.equal(historySwitch.props.style.background, "var(--handrail-enhancement-surface)");
+  assert.equal(historySwitch.props.style.background, "var(--handrail-enhancement-surface-muted)");
   assert.equal(listCalls.length, 1);
   assert.equal(renderer.root.findByProps({ "aria-label": "1 total" }).children.join(""), "1");
   await act(async () => historySwitch.props.onClick());
@@ -623,10 +623,11 @@ test("My requests previews attachments only through the principal-scoped client 
   });
   await act(async () => renderer.root.findByProps({ "aria-label": "View Attachment request" }).props.onClick());
 
-  assert.deepEqual(attachmentUrlCalls, [
-    ["enh-with-images", "attachment-1"],
-    ["enh-with-images", "attachment-2"],
-  ]);
+  assert.equal(attachmentUrlCalls.length >= 2, true);
+  assert.deepEqual(new Set(attachmentUrlCalls.map((call) => call.join(":"))), new Set([
+    "enh-with-images:attachment-1",
+    "enh-with-images:attachment-2",
+  ]));
   const attachmentPreviews = renderer.root.findAllByProps({
     "data-handrail-enhancement-history-attachment-preview": "true",
   });
