@@ -336,15 +336,16 @@ test("Default Known Users receive capability-driven history without automation a
     reported_app_version: "3.2.1",
     terminal: true, dismissed: true, dismissed_at: "2026-08-01T00:00:00Z",
     delivery_journey: {
-      contract_version: 1,
+      contract_version: 2,
       state: "succeeded",
-      label: "Shipped · verified",
-      summary: "Your enhancement was shipped to staging and verified there.",
-      measured_at: "2026-08-01T00:14:00Z",
-      total_elapsed_ms: 840_000,
+      label: "Released · confirmed",
+      summary: "Your enhancement was released to staging and confirmed there.",
+      measured_at: "2026-08-01T00:14:30Z",
+      total_elapsed_ms: 870_000,
       assessed_change_risk: "low",
       implementation_mode: "automatic",
       manual_handoffs: 0,
+      released_environment: "staging",
       shipped_environment: "staging",
       verification_status: "passed",
       verification_environment: "staging",
@@ -353,9 +354,9 @@ test("Default Known Users receive capability-driven history without automation a
         { key: "suggested", label: "Suggested", state: "completed", started_at: "2026-08-01T00:00:00Z", completed_at: "2026-08-01T00:00:00Z", duration_ms: 0, detail: "Request received" },
         { key: "assessed", label: "Assessed", state: "completed", started_at: "2026-08-01T00:00:10Z", completed_at: "2026-08-01T00:02:00Z", duration_ms: 110_000, detail: "low change risk" },
         { key: "plan_ready", label: "Plan ready", state: "completed", started_at: "2026-08-01T00:02:00Z", completed_at: "2026-08-01T00:02:00Z", duration_ms: 0, detail: null },
-        { key: "built", label: "Built", state: "completed", started_at: "2026-08-01T00:03:00Z", completed_at: "2026-08-01T00:08:00Z", duration_ms: 300_000, detail: "Implemented" },
-        { key: "checked", label: "Checked", state: "completed", started_at: "2026-08-01T00:08:00Z", completed_at: "2026-08-01T00:09:00Z", duration_ms: 60_000, detail: "Checks passed" },
-        { key: "shipped", label: "Shipped", state: "completed", started_at: "2026-08-01T00:13:00Z", completed_at: "2026-08-01T00:14:00Z", duration_ms: 60_000, detail: "Shipped to staging" },
+        { key: "implemented", label: "Implemented", state: "completed", started_at: "2026-08-01T00:03:00Z", completed_at: "2026-08-01T00:08:00Z", duration_ms: 300_000, detail: "Implemented" },
+        { key: "released", label: "Released", state: "completed", started_at: "2026-08-01T00:13:00Z", completed_at: "2026-08-01T00:14:00Z", duration_ms: 60_000, detail: "Released to staging" },
+        { key: "confirmed", label: "Confirmed", state: "completed", started_at: "2026-08-01T00:14:00Z", completed_at: "2026-08-01T00:14:30Z", duration_ms: 30_000, detail: "Confirmed in staging" },
       ],
     },
   };
@@ -402,13 +403,16 @@ test("Default Known Users receive capability-driven history without automation a
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-row": "true" }).length, 1);
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-delivery-journey": "true" }).length, 1);
   assert.equal(renderer.root.findByProps({ "data-handrail-enhancement-delivery-journey": "true" }).findAllByProps({ role: "listitem" }).length, 6);
-  assert.match(JSON.stringify(renderer.toJSON()), /Shipped · verified/);
+  assert.match(JSON.stringify(renderer.toJSON()), /Released · confirmed/);
   assert.deepEqual(renderer.root.findByProps({ "aria-label": "Enhancement visibility" }).findAllByType("button").map((button) => button.children.join("")), ["Archived", "Active", "All"]);
   assert.equal(renderer.root.findAll((node) => node.type === "button" && node.children?.some((child) => typeof child === "string" && child.startsWith("Clear succeeded"))).length, 0);
   await act(async () => renderer.root.findByProps({ "aria-label": "View Saved filters" }).props.onClick());
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-history-detail": "true" }).length, 1);
   assert.equal(renderer.root.findAllByProps({ "data-handrail-enhancement-delivery-journey": "true" }).length, 2);
   assert.match(JSON.stringify(renderer.toJSON()), /Delivery receipt/);
+  assert.match(JSON.stringify(renderer.toJSON()), /Released to/);
+  assert.match(JSON.stringify(renderer.toJSON()), /Confirmation/);
+  assert.match(JSON.stringify(renderer.toJSON()), /Confirmed in/);
   assert.match(JSON.stringify(renderer.toJSON()), /Manual handoffs/);
   assert.deepEqual(listCalls[0], { limit: 10, offset: 0, search: undefined, statusGroup: undefined, sort: "newest", visibility: "active" });
 

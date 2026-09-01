@@ -173,7 +173,7 @@ export type EnhancementDeliveryJourneyState = "active" | "waiting" | "succeeded"
 export type EnhancementDeliveryMilestoneState = "pending" | "active" | "waiting" | "completed" | "blocked" | "skipped";
 
 export interface EnhancementDeliveryMilestone {
-  readonly key: "suggested" | "assessed" | "plan_ready" | "built" | "checked" | "shipped" | string;
+  readonly key: "suggested" | "assessed" | "plan_ready" | "implemented" | "released" | "confirmed" | "built" | "checked" | "shipped" | string;
   readonly label: string;
   readonly state: EnhancementDeliveryMilestoneState;
   readonly started_at: string | null;
@@ -183,7 +183,7 @@ export interface EnhancementDeliveryMilestone {
 }
 
 export interface EnhancementDeliveryJourney {
-  readonly contract_version: 1;
+  readonly contract_version: 1 | 2;
   readonly state: EnhancementDeliveryJourneyState;
   readonly label: string;
   readonly summary: string;
@@ -192,6 +192,8 @@ export interface EnhancementDeliveryJourney {
   readonly assessed_change_risk: "low" | "moderate" | "high" | null;
   readonly implementation_mode: "automatic" | "manual" | null;
   readonly manual_handoffs: number | null;
+  readonly released_environment?: string | null;
+  /** @deprecated Use released_environment. Retained for compatibility with v1 servers. */
   readonly shipped_environment?: string | null;
   readonly verification_status?: string | null;
   readonly verification_environment?: string | null;
