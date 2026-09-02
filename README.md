@@ -11,7 +11,7 @@ repository; the package should not be assumed to exist in the npm registry:
 
 ```sh
 npm install \
-  '@handrail/enhancement-reporter@github:c0x65o/handrail-js-enhancement-reporter'
+  '@handrail/enhancement-reporter@github:c0x65o/handrail-sdk-enhancement-reporter-js'
 ```
 
 You do not need a Handrail Maintenance commit hash, tag, or dependency pin
